@@ -18,6 +18,10 @@ saludo=Hola, buen día 😊\n¿En qué puedo ayudarte?
 gracias=¡Muchas gracias! Cualquier consulta me escribes.
 ok!=Recibido, lo reviso y te confirmo en breve.
 
+# ── Archivos (se adjuntan/pegan donde estés) ──
+# logo=archivo:C:\ruta\a\tu\logo.png
+# catalogo=archivo:C:\ruta\a\tu\catalogo.pdf
+
 # ── Útiles ──
 fecha=Hoy es {dia} {fecha} y son las {hora}
 cita=Nos vemos el {dia} {fecha} a las {hora}

@@ -38,6 +38,9 @@ SEMÁNTICA:
   - {cursor}      → al insertar, el cursor queda en esa posición
                     (para completar un dato a mano, como un nombre)
   - \n            → salto de línea (seguro en WhatsApp, no envía el mensaje)
+  - archivo:<ruta absoluta> → en vez de texto, el atajo PEGA ese archivo
+    (imagen/video/PDF): WhatsApp lo adjunta, Word inserta la imagen.
+    Ej: catalogo=archivo:D:\negocio\catalogo.pdf
   - GRUPOS DESGLOSABLES: nombre[5|10|15]=texto con {1} soles
     Al escribir //nombre aparece UNA fila que al pasar el mouse (o con
     la flecha →) se desglosa en un submenú con las opciones; {1} se

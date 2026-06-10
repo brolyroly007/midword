@@ -43,6 +43,14 @@ y agrega una línea por atajo:
 Los cambios se recargan solos (máximo 3 segundos después de guardar).
 Las líneas que empiezan con # son comentarios.
 
+ATAJOS DE ARCHIVO (imágenes, videos, PDF…)
+    logo=archivo:D:\negocio\logo.png
+    catalogo=archivo:D:\negocio\catalogo.pdf
+Al usarlo, el archivo se pega donde estés: WhatsApp Web y Telegram lo
+ADJUNTAN (imagen, video o PDF listo para enviar), Word inserta la imagen,
+Gmail la adjunta. En el gestor usa el botón "📎 archivo…" y la ruta se
+arma sola. Si la app no acepta archivos pegados, no se inserta nada.
+
 VARIABLES DENTRO DEL TEXTO
     \n .............. salto de línea (seguro: en WhatsApp NO envía el mensaje)
     {fecha} ......... fecha de hoy        → 09/06/2026

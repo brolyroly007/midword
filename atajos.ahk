@@ -351,6 +351,10 @@ EntryPreview(entry) {
     } else {
         txt := shortcuts[entry.trig]
     }
+    if SubStr(txt, 1, 8) = "archivo:" {
+        SplitPath(Trim(SubStr(txt, 9)), &fname)
+        return "📎 " fname
+    }
     txt := StrReplace(txt, "`n", "  ")
     if StrLen(txt) > 56
         txt := SubStr(txt, 1, 56) "…"
@@ -803,10 +807,51 @@ ExpandTrig(trig) {
     curTyped := ""
 }
 
+; Pone un archivo en el portapapeles como CF_HDROP (igual que Ctrl+C
+; sobre el archivo en el Explorador): WhatsApp/Telegram lo adjuntan,
+; Word/Docs insertan la imagen, Gmail lo adjunta.
+SetClipboardFiles(path) {
+    chars := StrLen(path) + 2              ; ruta + NUL + NUL final
+    bytes := 20 + chars * 2                ; DROPFILES (20) + lista UTF-16
+    hMem := DllCall("GlobalAlloc", "uint", 0x42, "uptr", bytes, "ptr")
+    p := DllCall("GlobalLock", "ptr", hMem, "ptr")
+    NumPut("uint", 20, p, 0)               ; pFiles = sizeof(DROPFILES)
+    NumPut("int", 1, p, 16)                ; fWide = TRUE (UTF-16)
+    StrPut(path, p + 20, "UTF-16")
+    DllCall("GlobalUnlock", "ptr", hMem)
+    if !DllCall("OpenClipboard", "ptr", A_ScriptHwnd)
+        return false
+    DllCall("EmptyClipboard")
+    ok := DllCall("SetClipboardData", "uint", 15, "ptr", hMem, "ptr")  ; CF_HDROP
+    DllCall("CloseClipboard")
+    return !!ok
+}
+
+; Inserta un atajo de archivo (imagen, video, PDF…)
+InsertFile(path) {
+    if !FileExist(path) {
+        TrayTip("No se encontró el archivo:`n" path, "Atajos", "Icon!")
+        return
+    }
+    saved := ClipboardAll()
+    if !SetClipboardFiles(path) {
+        A_Clipboard := saved
+        return
+    }
+    Send("^v")
+    Sleep 1200   ; adjuntar un archivo tarda más que pegar texto
+    A_Clipboard := saved
+}
+
 ; Inserta pegando desde el portapapeles: instantáneo, soporta
 ; textos largos y los saltos de línea NO envían el mensaje en
 ; WhatsApp/Telegram. Restaura lo que tenías copiado.
 InsertText(txt) {
+    ; atajos de archivo:  miatajo=archivo:C:\ruta\imagen.png
+    if SubStr(txt, 1, 8) = "archivo:" {
+        InsertFile(Trim(SubStr(txt, 9)))
+        return
+    }
     txt := StrReplace(txt, "{fecha_larga}", FormatTime(, "d 'de' MMMM 'de' yyyy"))
     txt := StrReplace(txt, "{fecha}", FormatTime(, "dd/MM/yyyy"))
     txt := StrReplace(txt, "{hora}", FormatTime(, "HH:mm"))
@@ -945,6 +990,7 @@ OpenManager(*) {
 
     mgrGui.SetFont("s9 w400 c" CLR_MUTED, "Segoe UI")
     mgrGui.Add("Text", "x" X2 " y168 w300 Background" CLR_SURFACE, "Texto a insertar (Enter = salto de línea):")
+    Pill(mgrGui, X2 + 300, 160, 104, 26, "📎 archivo…", CLR_ACC_LITE, VERDE_OSC, PickFile, "s9 w600")
     mgrGui.SetFont("s10 w400 c" CLR_TEXT, "Segoe UI")
     mgrText := mgrGui.Add("Edit", "x" X2 " y186 w398 h78 Multi WantReturn VScroll Background" CLR_SURF_ALT)
     mgrText.OnEvent("Change", (*) => UpdateMgrPreview())
@@ -1101,10 +1147,23 @@ UpdateMgrPreview() {
             txt := StrReplace(txt, "{2}", l2[1].lab)
         }
     }
+    if SubStr(txt, 1, 8) = "archivo:" {
+        SplitPath(Trim(SubStr(txt, 9)), &pfn)
+        txt := "📎 " pfn " (se adjunta el archivo)"
+    }
     txt := StrReplace(txt, "`n", "  ")
     if StrLen(txt) > 110
         txt := SubStr(txt, 1, 110) "…"
     mgrPrev.Text := " " head "`n " txt
+}
+
+; atajo de archivo desde el gestor: elige el archivo y arma la sintaxis solo
+PickFile(*) {
+    f := FileSelect(3, , "Elige el archivo que insertará el atajo (imagen, video, PDF…)")
+    if f = ""
+        return
+    mgrText.Value := "archivo:" f
+    UpdateMgrPreview()
 }
 
 MgrNew(*) {
@@ -1135,6 +1194,10 @@ MgrSave(*) {
     if Trim(txt) = "" {
         MsgBox("Escribe el texto que se va a insertar.", "Atajos", "Icon!")
         return
+    }
+    if SubStr(txt, 1, 8) = "archivo:" && !FileExist(Trim(SubStr(txt, 9))) {
+        if MsgBox("La ruta del archivo no existe en este momento.`n`n¿Guardar de todos modos?", "Atajos", "YesNo Icon?") = "No"
+            return
     }
     l1 := ParseLevel(mgrL1.Value), l2 := ParseLevel(mgrL2.Value)
     if l2.Length && !l1.Length {
