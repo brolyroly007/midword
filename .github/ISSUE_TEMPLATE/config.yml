@@ -1,0 +1,5 @@
+blank_issues_enabled: true
+contact_links:
+  - name: 💬 Preguntas y dudas
+    url: https://github.com/brolyroly007/atajos/discussions
+    about: Para preguntas de uso que no son bugs, usa Discussions.
