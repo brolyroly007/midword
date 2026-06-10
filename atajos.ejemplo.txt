@@ -1,0 +1,23 @@
+# Atajos de texto — un atajo por línea, formato:  atajo=texto a insertar
+# Copia este archivo como "atajos.txt" (o deja que el programa lo cree) y personalízalo.
+#
+#   atajo=texto                  → atajo normal (Tab/Enter para insertar)
+#   atajo!=texto                 → expansión instantánea (sin Tab)
+#   atajo[5|10|15]=...{1}...     → grupo desglosable: //atajo abre un submenú
+#   atajo[a:Et A|b:Et B][5|10]=  → dos niveles de desglose, {1} y {2}
+#
+# Variables: {fecha} {hora} {dia} {fecha_larga} {cursor} — \n = salto de línea
+
+# ── Ventas ──
+con[5|10|15|20|30|50]=para confirmar y empezar es necesario el adelanto de una parte. En su caso bastaría con {1} soles.\n\nEl pago es de preferencia mediante YAPE, al número: 999 999 999 - Tu Nombre
+yape=El pago es de preferencia mediante YAPE, al número: 999 999 999 - Tu Nombre
+precio=El costo del trabajo es S/ {cursor} e incluye revisiones.
+
+# ── Cortesía ──
+saludo=Hola, buen día 😊\n¿En qué puedo ayudarte?
+gracias=¡Muchas gracias! Cualquier consulta me escribes.
+ok!=Recibido, lo reviso y te confirmo en breve.
+
+# ── Útiles ──
+fecha=Hoy es {dia} {fecha} y son las {hora}
+cita=Nos vemos el {dia} {fecha} a las {hora}

@@ -1,0 +1,75 @@
+══════════════════════════════════════════════════════════════════
+ PROMPT PARA GENERAR ATAJOS CON CUALQUIER IA
+ Copia TODO este archivo, pégalo en ChatGPT / Claude / Gemini,
+ y al final describe tu negocio o las respuestas que necesitas.
+ La IA te devolverá líneas listas para pegar en atajos.txt
+══════════════════════════════════════════════════════════════════
+
+Actúa como un generador de atajos de texto para mi expansor personal.
+Tu única salida deben ser líneas válidas en el siguiente lenguaje,
+dentro de un bloque de código, sin explicaciones adicionales.
+
+GRAMÁTICA (EBNF):
+
+  archivo     = { linea } ;
+  linea       = comentario | atajo | vacia ;
+  comentario  = "#" texto-libre ;
+  atajo       = nombre [ nivel ] [ nivel ] [ "!" ] "=" contenido ;
+  nombre      = letra { letra | digito } ;          (* sin espacios, corto, memorable, en minúsculas *)
+  nivel       = "[" opcion { "|" opcion } "]" ;     (* desglose en submenú, máx. 2 niveles *)
+  opcion      = token [ ":" etiqueta ] ;            (* token: corto, sin espacios, va al nombre;
+                                                       etiqueta: texto visible y que se inserta *)
+  contenido   = { caracter | escape | variable } ;
+  escape      = "\n" ;                              (* salto de línea *)
+  variable    = "{fecha}" | "{hora}" | "{dia}" | "{fecha_larga}" | "{cursor}" | "{1}" | "{2}" ;
+
+SEMÁNTICA:
+
+  - El usuario escribe //nombre en cualquier aplicación y el texto
+    del contenido reemplaza lo escrito.
+  - "!" después del nombre = expansión instantánea: se inserta apenas
+    termina de escribirse, sin confirmar con Tab. Úsalo SOLO en atajos
+    cuyo nombre no sea el inicio de otro atajo (ej: si existe "con",
+    no marques "con!" si también existe "contrato").
+  - {fecha}       → fecha actual, formato 09/06/2026
+  - {fecha_larga} → "9 de junio de 2026"
+  - {hora}        → hora actual, formato 14:30
+  - {dia}         → nombre del día ("lunes")
+  - {cursor}      → al insertar, el cursor queda en esa posición
+                    (para completar un dato a mano, como un nombre)
+  - \n            → salto de línea (seguro en WhatsApp, no envía el mensaje)
+  - GRUPOS DESGLOSABLES: nombre[5|10|15]=texto con {1} soles
+    Al escribir //nombre aparece UNA fila que al pasar el mouse (o con
+    la flecha →) se desglosa en un submenú con las opciones; {1} se
+    reemplaza por la elegida. Genera también los atajos directos
+    nombre5, nombre10, nombre15. Úsalo para montos, plazos, tallas.
+  - DOS NIVELES: nombre[a:Etiqueta A|b:Etiqueta B][5|10]=...{1}...{2}...
+    El primer corchete es el primer submenú y el segundo, el segundo.
+    En cada opción, "token:Etiqueta": el token (corto, sin espacios ni
+    tildes) forma el nombre del atajo directo (//nombrea5) y la
+    etiqueta es lo que se muestra en el menú y se inserta en {1}/{2}.
+
+REGLAS DE ESTILO:
+
+  1. Nombres cortos (3-8 letras), fáciles de recordar, sin tildes ni espacios.
+  2. Agrupa los atajos con comentarios "# ── Sección ──".
+  3. Español neutro/peruano (nada de voseo: "puedes", no "podés").
+  4. Si un texto pide un dato variable de la conversación (nombre del
+     cliente, monto), usa {cursor} en ese punto.
+  5. Tono cordial y profesional salvo que se indique otra cosa.
+  6. No repitas nombres de atajo.
+
+EJEMPLO DE SALIDA VÁLIDA:
+
+  # ── Ventas ──
+  con[5|10|15|20]=para confirmar es necesario un adelanto de {1} soles.
+  precio=El costo del trabajo es S/ {cursor} e incluye revisiones.
+  yape=Mi número de Yape es 999 999 999 a nombre de Juan Pérez
+  # ── Cortesía ──
+  gracias=¡Muchas gracias! Cualquier consulta me escribes.
+  saludo=Hola, buen día 😊\n¿En qué puedo ayudarte?
+  recibido!=Recibido, lo reviso y te confirmo en breve.
+
+MI NEGOCIO / LO QUE NECESITO:
+(escribe aquí tu descripción: a qué te dedicas, qué preguntas te hacen
+siempre tus clientes, qué respuestas repites cada día, tu tono, etc.)

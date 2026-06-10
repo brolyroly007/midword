@@ -1,0 +1,81 @@
+ATAJOS — Expansor de texto global con autocompletado
+=====================================================
+
+¿QUÉ HACE?
+Escribe //atajo en CUALQUIER aplicación (WhatsApp Web, Word, navegador,
+Telegram, etc.) y aparecerá un menú flotante con las sugerencias que
+coincidan. Selecciona una con las flechas y presiona Tab o Enter:
+lo que escribiste (//con) se borra y se inserta el texto completo.
+
+ARCHIVOS
+- Atajos.exe ............ el programa (doble clic para iniciarlo)
+- atajos.txt ............ aquí guardas tus atajos
+- PROMPT_PARA_IA.txt .... pégalo en cualquier IA para que te genere atajos
+- atajos.ahk ............ código fuente (por si quieres modificarlo)
+- instalar_inicio.bat ... ejecútalo UNA vez para que arranque con Windows
+
+CÓMO AGREGAR ATAJOS (forma fácil — para cualquiera)
+Haz clic en el ícono de Atajos en la bandeja (junto al reloj) y se abre el
+GESTOR: una ventana con la lista de tus atajos y un formulario.
+1. Botón "➕ Nuevo", escribe el nombre (ej: gracias) y el texto.
+2. ¿Quieres desglose tipo //con → montos? Escribe las opciones en
+   "Desglose nivel 1", una por línea (5, 10, 15…), y usa el botón {1}
+   para marcar dónde va la opción dentro del texto. El nivel 2 igual, con {2}.
+3. Mira la vista previa y presiona "💾 Guardar". Listo, ya funciona.
+También puedes "📋 Importar desde IA": pega el bloque que te generó
+ChatGPT/Claude con PROMPT_PARA_IA.txt y se validan e importan solos.
+
+CÓMO AGREGAR ATAJOS (forma avanzada — editando el archivo)
+Abre atajos.txt (clic derecho en el ícono → "Editar atajos (archivo)")
+y agrega una línea por atajo:
+
+    atajo=texto que se va a insertar
+    atajo!=texto                        ← con ! se inserta apenas lo escribes,
+                                          sin necesidad de Tab/Enter
+    atajo[5|10|15]=texto con {1} soles  ← GRUPO: //atajo aparece como UNA fila
+                                          y se desglosa en un submenú al pasar
+                                          el mouse o presionar →. {1} = opción.
+    atajo[a:Et A|b:Et B][5|10]=...      ← DOS NIVELES: primer submenú y luego
+                                          otro. "token:Etiqueta" → el token va
+                                          al nombre (//atajoa5) y la etiqueta
+                                          se muestra y se inserta en {1}/{2}.
+
+Los cambios se recargan solos (máximo 3 segundos después de guardar).
+Las líneas que empiezan con # son comentarios.
+
+VARIABLES DENTRO DEL TEXTO
+    \n .............. salto de línea (seguro: en WhatsApp NO envía el mensaje)
+    {fecha} ......... fecha de hoy        → 09/06/2026
+    {fecha_larga} ... fecha en palabras   → 9 de junio de 2026
+    {hora} .......... hora actual         → 14:30
+    {dia} ........... día de la semana    → lunes
+    {cursor} ........ el cursor queda en ese punto al insertar
+                      (ideal para completar nombres o montos a mano)
+
+Ejemplos:
+    con=para confirmar y empezar es necesario el adelanto de una parte
+    precio=El costo es S/ {cursor} e incluye revisiones.
+    cita=Nos vemos el {dia} {fecha} a las {hora}
+    saludo=Hola, buen día 😊\n¿En qué puedo ayudarte?
+    ok!=Recibido, lo reviso y te confirmo en breve.
+
+CÓMO USARLO
+1. Escribe // seguido de letras (ej: //con). También busca DENTRO de los
+   textos: //adelanto encuentra el atajo "con" porque su texto lo contiene.
+2. Aparece el menú con las coincidencias. Los grupos se desglosan en un
+   submenú al pasar el mouse o con la flecha → (← para regresar).
+3. Flechas ↑↓ o mouse para elegir, Tab o Enter para insertar, Esc cancela.
+4. Los atajos con ! se insertan solos al terminar de escribirlos.
+5. El botón "☰ ver todos" del menú (o clic en el ícono de la bandeja)
+   muestra la lista completa de atajos.
+
+GENERAR ATAJOS CON IA
+Abre PROMPT_PARA_IA.txt, copia todo su contenido, pégalo en ChatGPT/Claude/
+Gemini, describe tu negocio al final, y pega las líneas que te devuelva
+dentro de atajos.txt. En 3 segundos ya están activos.
+
+DETALLES TÉCNICOS
+- El texto se inserta pegando desde el portapapeles (instantáneo incluso
+  con textos largos). Lo que tenías copiado se restaura automáticamente.
+- El programa vive en la bandeja del sistema (junto al reloj).
+- Clic derecho en su ícono: Editar atajos / Recargar / Salir.

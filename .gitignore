@@ -1,0 +1,11 @@
+# datos personales del usuario (usa atajos.ejemplo.txt como plantilla)
+atajos.txt
+
+# binario compilado (se distribuye en Releases)
+Atajos.exe
+
+# respaldos y temporales
+respaldos/
+_*.ahk
+_*.ps1
+_*.png
