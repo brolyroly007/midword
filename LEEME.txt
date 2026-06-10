@@ -1,5 +1,5 @@
-ATAJOS — Expansor de texto global con autocompletado
-=====================================================
+MIDWORD — Expansor de texto global con autocompletado
+======================================================
 
 ¿QUÉ HACE?
 Escribe //atajo en CUALQUIER aplicación (WhatsApp Web, Word, navegador,
@@ -8,14 +8,14 @@ coincidan. Selecciona una con las flechas y presiona Tab o Enter:
 lo que escribiste (//con) se borra y se inserta el texto completo.
 
 ARCHIVOS
-- Atajos.exe ............ el programa (doble clic para iniciarlo)
+- Midword.exe ........... el programa (doble clic para iniciarlo)
 - atajos.txt ............ aquí guardas tus atajos
 - PROMPT_PARA_IA.txt .... pégalo en cualquier IA para que te genere atajos
-- atajos.ahk ............ código fuente (por si quieres modificarlo)
+- midword.ahk ........... código fuente (por si quieres modificarlo)
 - instalar_inicio.bat ... ejecútalo UNA vez para que arranque con Windows
 
 CÓMO AGREGAR ATAJOS (forma fácil — para cualquiera)
-Haz clic en el ícono de Atajos en la bandeja (junto al reloj) y se abre el
+Haz clic en el ícono de Midword en la bandeja (junto al reloj) y se abre el
 GESTOR: una ventana con la lista de tus atajos y un formulario.
 1. Botón "➕ Nuevo", escribe el nombre (ej: gracias) y el texto.
 2. ¿Quieres desglose tipo //con → montos? Escribe las opciones en

@@ -1,6 +1,6 @@
 # Cómo contribuir
 
-¡Gracias por tu interés en mejorar Atajos! Cualquier aporte es bienvenido: reportar bugs, proponer ideas o enviar código.
+¡Gracias por tu interés en mejorar Midword! Cualquier aporte es bienvenido: reportar bugs, proponer ideas o enviar código.
 
 ## Reportar un bug o proponer una idea
 
@@ -18,13 +18,13 @@ Los PRs pequeños y enfocados se revisan más rápido que los grandes.
 ## Entorno de desarrollo
 
 - **Requisito:** [AutoHotkey v2](https://www.autohotkey.com/) (el script no es compatible con v1).
-- El programa completo vive en un solo archivo: `atajos.ahk`.
-- Para probar: cierra la instancia en ejecución (icono en bandeja → Salir) y ejecuta `atajos.ahk` directamente con doble clic.
+- El programa completo vive en un solo archivo: `midword.ahk`.
+- Para probar: cierra la instancia en ejecución (icono en bandeja → Salir) y ejecuta `midword.ahk` directamente con doble clic.
 
 ### Validar sintaxis antes de enviar
 
 ```powershell
-& "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" /ErrorStdOut /validate atajos.ahk
+& "C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe" /ErrorStdOut /validate midword.ahk
 ```
 
 Si no imprime nada, la sintaxis es válida.

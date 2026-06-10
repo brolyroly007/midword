@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 140" width="430" height="140" role="img" aria-label="Midword">
+  <style>
+    .t { font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace; font-weight: 700; font-size: 76px; }
+  </style>
+  <text class="t" x="30" y="98" fill="#F0EEE6">mid</text>
+  <rect x="172" y="32" width="7" height="78" rx="3.5" fill="#6A9E8C"/>
+  <text class="t" x="190" y="98" fill="#8FBCA9">word</text>
+</svg>

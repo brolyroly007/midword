@@ -1,6 +1,6 @@
 ---
 name: 💡 Propuesta de mejora
-about: Una idea para hacer Atajos más útil
+about: Una idea para hacer Midword más útil
 title: ''
 labels: enhancement
 assignees: ''

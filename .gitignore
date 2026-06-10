@@ -2,11 +2,9 @@
 atajos.txt
 
 # binario compilado (se distribuye en Releases)
-Atajos.exe
+Midword.exe
 
 # respaldos y temporales
 respaldos/
-_*.ahk
-_*.ps1
-_*.png
+_*
 *.mp4

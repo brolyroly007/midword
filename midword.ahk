@@ -1,5 +1,5 @@
 ; ============================================================
-;  Atajos — expansor de texto global con autocompletado
+;  Midword — expansor de texto global con autocompletado
 ;  Tema visual: paleta RedactorIA / BiPe Alerta
 ;  (crema #F0EEE6, blanco, carbón #141413, verde salvia #6A9E8C)
 ;
@@ -92,8 +92,8 @@ sub2ForIdx := 0
 LoadShortcuts()
 
 ; --- Menú de la bandeja del sistema ---
-if FileExist(A_ScriptDir "\atajos.ico")
-    TraySetIcon(A_ScriptDir "\atajos.ico")
+if FileExist(A_ScriptDir "\midword.ico")
+    TraySetIcon(A_ScriptDir "\midword.ico")
 A_TrayMenu.Delete()
 A_TrayMenu.Add("Gestionar atajos…", OpenManager)
 A_TrayMenu.Add("Ver todos los atajos", ShowAllFromTray)
@@ -102,7 +102,7 @@ A_TrayMenu.Add("Recargar atajos", ReloadConfig)
 A_TrayMenu.Add()
 A_TrayMenu.Add("Salir", (*) => ExitApp())
 A_TrayMenu.Default := "Gestionar atajos…"
-TrayTip("Escribe " PREFIX "atajo en cualquier aplicación", "Atajos activo")
+TrayTip("Escribe " PREFIX "atajo en cualquier aplicación", "Midword activo")
 
 ; --- Hook de teclado: solo observa, no bloquea nada ---
 ih := InputHook("V I1")
@@ -148,7 +148,7 @@ EditConfig(*) {
 
 ReloadConfig(*) {
     LoadShortcuts()
-    TrayTip("Se recargaron " shortcuts.Count " atajos", "Atajos")
+    TrayTip("Se recargaron " shortcuts.Count " atajos", "Midword")
 }
 
 CheckConfigChanged() {
@@ -253,7 +253,7 @@ LoadShortcuts() {
         s := ""
         for bn in badLines
             s .= (s ? ", " : "") bn
-        TrayTip("Línea(s) ignoradas en atajos.txt (les falta el '='): " s, "Atajos — revisa el archivo", "Icon!")
+        TrayTip("Línea(s) ignoradas en atajos.txt (les falta el '='): " s, "Midword — revisa el archivo", "Icon!")
     }
 }
 
@@ -392,7 +392,7 @@ BuildMenu() {
 
     ; --- header crema: título + botón "ver todos" + hints ---
     sugGui.SetFont("s9 c" CLR_ACCENT " w700", "Segoe UI")
-    sugGui.Add("Text", "x1 y1 w110 h" HH " Background" CLR_BG " +0x200", "   ●  Atajos")
+    sugGui.Add("Text", "x1 y1 w110 h" HH " Background" CLR_BG " +0x200", "   ●  Midword")
     btn := sugGui.Add("Text", "x111 y1 w90 h" HH " Background" CLR_BG " +0x200", "  ☰ ver todos")
     btn.OnEvent("Click", ShowAllClick)
     sugGui.SetFont("s8 c" CLR_MUTED " w400", "Segoe UI")
@@ -830,7 +830,7 @@ SetClipboardFiles(path) {
 ; Inserta un atajo de archivo (imagen, video, PDF…)
 InsertFile(path) {
     if !FileExist(path) {
-        TrayTip("No se encontró el archivo:`n" path, "Atajos", "Icon!")
+        TrayTip("No se encontró el archivo:`n" path, "Midword", "Icon!")
         return
     }
     saved := ClipboardAll()
@@ -942,7 +942,7 @@ OpenManager(*) {
         mgrGui.Show()
         return
     }
-    mgrGui := Gui("-MaximizeBox", "Atajos")
+    mgrGui := Gui("-MaximizeBox", "Midword")
     mgrGui.BackColor := CLR_BG
     mgrGui.OnEvent("Close", (*) => (mgrGui.Hide(), 1))
     ; barra de título oscura, a juego con el hero
@@ -954,9 +954,9 @@ OpenManager(*) {
     if FileExist(A_ScriptDir "\logo_hero.png")
         mgrGui.Add("Picture", "x36 y26 w34 h34", A_ScriptDir "\logo_hero.png")
     mgrGui.SetFont("s14 w700 cFFFFFF", "Segoe UI")
-    mgrGui.Add("Text", "x80 y24 w110 h28 Background" CLR_TEXT, "Atajos")
+    mgrGui.Add("Text", "x80 y24 w110 h28 Background" CLR_TEXT, "Midword")
     mgrGui.SetFont("s14 w400 c" CLR_ONDARK, "Segoe UI")
-    mgrGui.Add("Text", "x156 y23 w12 h28 Background" CLR_TEXT, "|")
+    mgrGui.Add("Text", "x176 y23 w12 h28 Background" CLR_TEXT, "|")
     mgrGui.SetFont("s8 w700 c" CLR_ACCENT, "Segoe UI")
     mgrGui.Add("Text", "x82 y57 w12 h14 Background" CLR_TEXT, "●")
     mgrGui.SetFont("s8 w700 cFFFFFF", "Segoe UI")
@@ -1187,29 +1187,29 @@ MgrSave(*) {
     global mgrSelLine, rawLines
     name := Trim(mgrName.Value)
     if name = "" || !RegExMatch(name, "^[^\s\[\]=!:|{}]+$") {
-        MsgBox("El nombre no puede estar vacío ni llevar espacios, corchetes, `=`, `!`, `:` ni `|`.`n`nEjemplos válidos: con, gracias, precio2", "Atajos", "Icon!")
+        MsgBox("El nombre no puede estar vacío ni llevar espacios, corchetes, `=`, `!`, `:` ni `|`.`n`nEjemplos válidos: con, gracias, precio2", "Midword", "Icon!")
         return
     }
     txt := StrReplace(mgrText.Value, "`r`n", "`n")
     if Trim(txt) = "" {
-        MsgBox("Escribe el texto que se va a insertar.", "Atajos", "Icon!")
+        MsgBox("Escribe el texto que se va a insertar.", "Midword", "Icon!")
         return
     }
     if SubStr(txt, 1, 8) = "archivo:" && !FileExist(Trim(SubStr(txt, 9))) {
-        if MsgBox("La ruta del archivo no existe en este momento.`n`n¿Guardar de todos modos?", "Atajos", "YesNo Icon?") = "No"
+        if MsgBox("La ruta del archivo no existe en este momento.`n`n¿Guardar de todos modos?", "Midword", "YesNo Icon?") = "No"
             return
     }
     l1 := ParseLevel(mgrL1.Value), l2 := ParseLevel(mgrL2.Value)
     if l2.Length && !l1.Length {
-        MsgBox("Hay opciones en el nivel 2 pero el nivel 1 está vacío.`nLlena primero el nivel 1.", "Atajos", "Icon!")
+        MsgBox("Hay opciones en el nivel 2 pero el nivel 1 está vacío.`nLlena primero el nivel 1.", "Midword", "Icon!")
         return
     }
     if l1.Length && !InStr(txt, "{1}") {
-        if MsgBox("El texto no contiene {1}, así que la opción elegida del nivel 1 no aparecerá en él.`n`n¿Guardar de todos modos?", "Atajos", "YesNo Icon?") = "No"
+        if MsgBox("El texto no contiene {1}, así que la opción elegida del nivel 1 no aparecerá en él.`n`n¿Guardar de todos modos?", "Midword", "YesNo Icon?") = "No"
             return
     }
     if l2.Length && !InStr(txt, "{2}") {
-        if MsgBox("El texto no contiene {2}, así que la opción elegida del nivel 2 no aparecerá en él.`n`n¿Guardar de todos modos?", "Atajos", "YesNo Icon?") = "No"
+        if MsgBox("El texto no contiene {2}, así que la opción elegida del nivel 2 no aparecerá en él.`n`n¿Guardar de todos modos?", "Midword", "YesNo Icon?") = "No"
             return
     }
     newLine := SerializeAtajo(name, mgrInst.Value, txt, l1, l2)
@@ -1220,16 +1220,16 @@ MgrSave(*) {
         mgrSelLine := rawLines.Length
     }
     SaveRawAndReload()
-    TrayTip("Atajo " PREFIX name " guardado", "Atajos")
+    TrayTip("Atajo " PREFIX name " guardado", "Midword")
 }
 
 MgrDelete(*) {
     global mgrSelLine, rawLines
     if mgrSelLine < 1 || mgrSelLine > rawLines.Length {
-        MsgBox("Selecciona primero un atajo de la lista.", "Atajos", "Icon!")
+        MsgBox("Selecciona primero un atajo de la lista.", "Midword", "Icon!")
         return
     }
-    if MsgBox("¿Eliminar el atajo " PREFIX Trim(mgrName.Value) " ?", "Atajos", "YesNo Icon?") = "No"
+    if MsgBox("¿Eliminar el atajo " PREFIX Trim(mgrName.Value) " ?", "Midword", "YesNo Icon?") = "No"
         return
     rawLines.RemoveAt(mgrSelLine)
     SaveRawAndReload()
@@ -1296,7 +1296,7 @@ DoImport(*) {
         ok++
     }
     if !ok {
-        MsgBox("No se encontró ninguna línea válida para importar.", "Atajos", "Icon!")
+        MsgBox("No se encontró ninguna línea válida para importar.", "Midword", "Icon!")
         return
     }
     for t in toAdd
@@ -1310,5 +1310,5 @@ DoImport(*) {
         msg .= "`nLíneas omitidas por formato inválido: " s
     }
     impGui.Hide()
-    MsgBox(msg, "Atajos", "Iconi")
+    MsgBox(msg, "Midword", "Iconi")
 }

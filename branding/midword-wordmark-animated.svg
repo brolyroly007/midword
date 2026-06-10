@@ -1,0 +1,36 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 430 140" width="430" height="140" role="img" aria-label="Midword — tu texto se completa solo">
+  <style>
+    .t { font-family: 'JetBrains Mono', 'Cascadia Code', Consolas, monospace; font-weight: 700; font-size: 76px; }
+  </style>
+
+  <!-- "mid" — lo que tú escribes -->
+  <text class="t" x="30" y="98" fill="#33312B">mid</text>
+
+  <!-- caret: parpadea y avanza con cada letra completada -->
+  <rect x="172" y="32" width="7" height="78" rx="3.5" fill="#6A9E8C">
+    <animate attributeName="opacity" values="1;0" keyTimes="0;0.55"
+             calcMode="discrete" dur="1.2s" repeatCount="indefinite"/>
+    <animateTransform attributeName="transform" type="translate" calcMode="discrete"
+             values="0 0;45.6 0;91.2 0;136.8 0;182.4 0;0 0"
+             keyTimes="0;0.25;0.325;0.4;0.475;0.92"
+             dur="4.8s" repeatCount="indefinite"/>
+  </rect>
+
+  <!-- "word" — lo que Midword completa, letra por letra -->
+  <text class="t" x="190" y="98" fill="#4A7C5F" opacity="0">w
+    <animate attributeName="opacity" values="0;1;0" keyTimes="0;0.25;0.92"
+             calcMode="discrete" dur="4.8s" repeatCount="indefinite"/>
+  </text>
+  <text class="t" x="235.6" y="98" fill="#4A7C5F" opacity="0">o
+    <animate attributeName="opacity" values="0;1;0" keyTimes="0;0.325;0.92"
+             calcMode="discrete" dur="4.8s" repeatCount="indefinite"/>
+  </text>
+  <text class="t" x="281.2" y="98" fill="#4A7C5F" opacity="0">r
+    <animate attributeName="opacity" values="0;1;0" keyTimes="0;0.4;0.92"
+             calcMode="discrete" dur="4.8s" repeatCount="indefinite"/>
+  </text>
+  <text class="t" x="326.8" y="98" fill="#4A7C5F" opacity="0">d
+    <animate attributeName="opacity" values="0;1;0" keyTimes="0;0.475;0.92"
+             calcMode="discrete" dur="4.8s" repeatCount="indefinite"/>
+  </text>
+</svg>

@@ -1,8 +1,13 @@
 <div align="center">
 
-<img src="logo.png" width="80" alt="Atajos">
+<img src="logo.png" width="80" alt="Midword">
 
-# Atajos
+# Midword
+
+<picture>
+  <source media="(prefers-color-scheme: dark)" srcset="branding/midword-wordmark-animated-dark.svg">
+  <img src="branding/midword-wordmark-animated.svg" width="300" alt="mid|word — tu texto se completa solo">
+</picture>
 
 **Expansor de texto global para Windows, con menú de autocompletado estilo WhatsApp.**
 
@@ -31,7 +36,7 @@ Escribe `//atajo` en cualquier aplicación —WhatsApp Web, Word, Telegram, tu n
 
 **Opción A — Ejecutable (recomendada):**
 
-1. Descarga `Atajos.exe` desde [Releases](../../releases).
+1. Descarga `Midword.exe` desde [Releases](../../releases).
 2. Ponlo en una carpeta (ej. `C:\atajos`) y ábrelo. Aparece su ícono junto al reloj.
 3. Escribe `//con` en cualquier app para probar.
 4. Para que arranque con Windows: ejecuta `instalar_inicio.bat` una vez (edita antes la ruta si no usas `D:\atajos`).
@@ -39,7 +44,7 @@ Escribe `//atajo` en cualquier aplicación —WhatsApp Web, Word, Telegram, tu n
 **Opción B — Desde el código fuente:**
 
 1. Instala [AutoHotkey v2](https://www.autohotkey.com/).
-2. Clona este repo y haz doble clic en `atajos.ahk`.
+2. Clona este repo y haz doble clic en `midword.ahk`.
 
 En el primer arranque se crea `atajos.txt` con ejemplos (o copia `atajos.ejemplo.txt` como `atajos.txt` y personalízalo).
 
@@ -83,7 +88,7 @@ Copia el contenido de [`PROMPT_PARA_IA.txt`](PROMPT_PARA_IA.txt), pégalo en cua
 
 ## 🛡️ ¿Tu antivirus marca el exe?
 
-Es un **falso positivo** común con ejecutables compilados de AutoHotkey (el compilador empaqueta un intérprete, y algunos antivirus desconfían por costumbre). El código fuente completo está en este repo — puedes leerlo, ejecutar `atajos.ahk` directamente, o compilarlo tú mismo con `recompilar.ps1` (requiere AutoHotkey v2 instalado).
+Es un **falso positivo** común con ejecutables compilados de AutoHotkey (el compilador empaqueta un intérprete, y algunos antivirus desconfían por costumbre). El código fuente completo está en este repo — puedes leerlo, ejecutar `midword.ahk` directamente, o compilarlo tú mismo con `recompilar.ps1` (requiere AutoHotkey v2 instalado).
 
 ## 🔧 Compilar
 
