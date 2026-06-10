@@ -990,7 +990,7 @@ OpenManager(*) {
 
     mgrGui.SetFont("s9 w400 c" CLR_MUTED, "Segoe UI")
     mgrGui.Add("Text", "x" X2 " y168 w300 Background" CLR_SURFACE, "Texto a insertar (Enter = salto de línea):")
-    Pill(mgrGui, X2 + 300, 160, 104, 26, "📎 archivo…", CLR_ACC_LITE, VERDE_OSC, PickFile, "s9 w600")
+    Pill(mgrGui, X2 + 300, 160, 104, 26, "📎 archivo…", CLR_ACC_LITE, CLR_ACC_DARK, PickFile, "s9 w600")
     mgrGui.SetFont("s10 w400 c" CLR_TEXT, "Segoe UI")
     mgrText := mgrGui.Add("Edit", "x" X2 " y186 w398 h78 Multi WantReturn VScroll Background" CLR_SURF_ALT)
     mgrText.OnEvent("Change", (*) => UpdateMgrPreview())
