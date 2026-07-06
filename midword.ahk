@@ -530,8 +530,13 @@ LoadShortcuts() {
         msg .= (msg ? "`n" : "") "Atajos repetidos (gana el último): " JoinNums(dupNames)
     if wsTrigs.Length
         msg .= (msg ? "`n" : "") "Atajos con espacios (no se pueden escribir): " JoinNums(wsTrigs)
-    if msg
+    if msg {
+        ; el detalle completo va al log; el TrayTip se corta a ~200 chars
+        try FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") "  Advertencias de atajos.txt:`n" msg "`n", A_ScriptDir "\midword.log", "UTF-8")
+        if StrLen(msg) > 200
+            msg := SubStr(msg, 1, 200) "…`n(detalle completo en midword.log)"
         TrayTip("Líneas: " msg, "Midword — revisa atajos.txt", "Icon!")
+    }
 }
 
 JoinNums(arr) {
@@ -757,6 +762,15 @@ DimRange(d) {
     return d.Length > 1 ? d[1].lab "–" d[d.Length].lab : d[1].lab
 }
 
+; vista amable de los modos especiales en las vistas previas
+PrettyModes(txt) {
+    if SubStr(txt, 1, 8) = "teclear:"
+        return "⌨ " SubStr(txt, 9)
+    if SubStr(txt, 1, 5) = "html:"
+        return "✱ " RegExReplace(RegExReplace(SubStr(txt, 6), "i)<br\s*/?>", "  "), "<[^>]+>")
+    return txt
+}
+
 EntryPreview(entry) {
     if entry.kind = "group" {
         txt := StrReplace(entry.template, "{1}", DimRange(entry.dims[1]))
@@ -770,6 +784,7 @@ EntryPreview(entry) {
         SplitPath(Trim(parts[1]), &fname)
         return "📎 " fname (parts.Length > 1 ? "  (+" (parts.Length - 1) ")" : "")
     }
+    txt := PrettyModes(txt)
     txt := StrReplace(txt, "`n", "  ")
     if StrLen(txt) > 56
         txt := SubStr(txt, 1, 56) "…"
@@ -1269,6 +1284,7 @@ ShowFullPreview(i) {
     }
     entry := EntryAt(i)
     txt := entry.kind = "group" ? entry.template : shortcuts[entry.trig]
+    txt := PrettyModes(txt)
     if SubStr(txt, 1, 8) = "archivo:" || (StrLen(txt) <= 56 && !InStr(txt, "`n")) {
         ToolTip(, , , 20)
         return
@@ -1789,12 +1805,18 @@ MgrTryClose(*) {
 
 MgrDirtyOk() {
     global mgrDirty
+    static lastNoTick := 0
     if !mgrDirty
         return true
+    ; una multi-selección dispara ItemSelect por cada fila: si acaba de
+    ; responder "No", no volver a preguntar en la misma ráfaga
+    if A_TickCount - lastNoTick < 800
+        return false
     if MsgBox("Tienes cambios sin guardar en el formulario.`n`n¿Descartarlos?", "Midword", "YesNo Icon?") = "Yes" {
         mgrDirty := false
         return true
     }
+    lastNoTick := A_TickCount
     return false
 }
 
@@ -1835,14 +1857,14 @@ RefreshMgrList() {
         return
     if mgrCount
         mgrCount.Text := shortcuts.Count " frases  ·  " order.Length " atajos"
-    filter := mgrSearch.Value
+    filter := Norm(mgrSearch.Value)   ; sin tildes, como el menú
     mgrLV.Delete()
     mgrRows := []
     lastSec := ""
     for entry in order {
         label := EntryLabel(entry)
         prev := EntryPreview(entry)
-        if filter = "" || InStr(label, filter) || InStr(prev, filter) {
+        if filter = "" || InStr(Norm(label), filter) || InStr(Norm(prev), filter) {
             ; separador de sección (solo sin filtro, para no estorbar)
             if filter = "" && entry.sec != "" && entry.sec != lastSec {
                 mgrLV.Add(, "── " entry.sec, "")
@@ -1967,6 +1989,7 @@ UpdateMgrPreview() {
         SplitPath(Trim(pparts[1]), &pfn)
         txt := "📎 " pfn (pparts.Length > 1 ? " (+" (pparts.Length - 1) " más)" : "") " (se adjunta)"
     }
+    txt := PrettyModes(txt)
     txt := StrReplace(txt, "`n", "  ")
     if StrLen(txt) > 110
         txt := SubStr(txt, 1, 110) "…"
@@ -1996,11 +2019,12 @@ MgrNew(*) {
 }
 
 MgrDup(*) {
-    global mgrSelLine, mgrSelRaw
+    global mgrSelLine, mgrSelRaw, mgrDirty
     mgrSelLine := 0, mgrSelRaw := ""
     if mgrName.Value != ""
         mgrName.Value := mgrName.Value "2"
     UpdateMgrPreview()
+    mgrDirty := true   ; el duplicado aún no está guardado
 }
 
 MgrSave(*) {

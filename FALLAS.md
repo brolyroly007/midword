@@ -15,19 +15,24 @@ Estado global: sintaxis ✅ · selftest 18/18 ✅ · smoke de arranque ✅ — p
 > Fix: nuevo flag `expandCanceled` que `InsertText` activa cuando `ResolveVars` devuelve false; `ExpandTrig` lo detecta y reescribe lo borrado con `SendText(PREFIX curTyped)`, sin contar uso ni sonar ni dejar deshacer colgado.
 `ExpandTrig` borra `//atajo` con backspaces ANTES de llamar a `InsertText`; si el usuario cancela el InputBox, `ResolveVars` devuelve false y no se inserta nada — pero lo tipeado ya se borró. Fix: si `InsertText` devolvió `""` por cancelación, reescribir lo borrado (`SendText(PREFIX curTyped)`); distinguir "canceló" de "no hay deshacer" (p. ej. `ResolveVars` con código de retorno propio o flag global).
 
-## 🟠 F3 — "Duplicar" no marca el formulario como sucio
+## ✅ HECHO — 🟠 F3 — "Duplicar" no marca el formulario como sucio
+> Fix: `MgrDup` termina con `mgrDirty := true`; el duplicado ahora pide confirmación antes de descartarse.
 `MgrDup` cambia el nombre y deja contenido nuevo sin guardar, pero no pone `mgrDirty := true` → cambiar de selección, "+ Nuevo" o cerrar descartan el duplicado SIN el aviso de cambios sin guardar. Fix: `mgrDirty := true` al final de `MgrDup`.
 
-## 🟠 F4 — Aviso de descarte repetido con multi-selección
+## ✅ HECHO — 🟠 F4 — Aviso de descarte repetido con multi-selección
+> Fix: si respondió "Sí", `mgrDirty` queda en false y las filas siguientes pasan sin preguntar (verificado: `LoadEntryToForm` limpia el dirty al final); si respondió "No", `lastNoTick` evita repetir el MsgBox durante 800 ms (la ráfaga de eventos de la multi-selección).
 Con cambios sin guardar y una selección Ctrl/Shift de N filas, `MgrItemSelect` dispara `MgrDirtyOk()` por CADA fila seleccionada → N MsgBox seguidos. Fix: si el usuario ya respondió "Sí, descartar" en esta ráfaga (o `mgrDirty` quedó en false tras el primer aviso), no volver a preguntar; con que el primer aviso limpie `mgrDirty` basta — verificar que efectivamente ocurre y que no se vuelve a marcar dirty durante la carga de cada fila (revisar orden de eventos Change durante `LoadEntryToForm`).
 
-## 🟡 F5 — El buscador del gestor no ignora tildes
+## ✅ HECHO — 🟡 F5 — El buscador del gestor no ignora tildes
+> Fix: `RefreshMgrList` aplica `Norm()` al filtro, al label y a la vista previa, igual que el menú.
 El menú busca con `Norm()` (sin tildes/mayúsculas) pero `RefreshMgrList` compara con `InStr` directo: buscar "numero" en el gestor no encuentra "número". Fix: aplicar `Norm()` a filtro, label y preview.
 
-## 🟡 F6 — Los prefijos `teclear:` y `html:` se muestran crudos en las vistas previas
+## ✅ HECHO — 🟡 F6 — Los prefijos `teclear:` y `html:` se muestran crudos en las vistas previas
+> Fix: helper `PrettyModes()` (⌨ para teclear, ✱ + HTML desnudado para html) aplicado en `EntryPreview`, `UpdateMgrPreview` y `ShowFullPreview`.
 `EntryPreview` (menú), `UpdateMgrPreview` (gestor) y `ShowFullPreview` (tooltip) muestran "teclear:Hola..." / "html:<b>..." tal cual. Fix: en las previews, quitar el prefijo y añadir un marcador amable ("⌨ " para teclear, "🅷 " o "✱ " para html), como ya se hace con `archivo:` → 📎.
 
-## 🟡 F7 — El TrayTip de advertencias de carga puede truncarse
+## ✅ HECHO — 🟡 F7 — El TrayTip de advertencias de carga puede truncarse
+> Fix: el detalle completo siempre se registra en `midword.log`; el TrayTip se corta a 200 chars con "… (detalle completo en midword.log)".
 `LoadShortcuts` concatena hasta 5 categorías de advertencias en un solo TrayTip (límite práctico ~256 chars). Con muchos problemas, se corta sin indicación. Fix: acortar el mensaje (máx. ~3 líneas + "…") y volcar el detalle completo a `midword.log`.
 
 ## 🔵 F8 — Prueba de humo end-to-end automatizada
@@ -40,9 +45,9 @@ El menú busca con `Norm()` (sin tildes/mayúsculas) pero `RefreshMgrList` compa
 |---|---|
 | F1 | ✅ |
 | F2 | ✅ |
-| F3 | pendiente |
-| F4 | pendiente |
-| F5 | pendiente |
-| F6 | pendiente |
-| F7 | pendiente |
+| F3 | ✅ |
+| F4 | ✅ |
+| F5 | ✅ |
+| F6 | ✅ |
+| F7 | ✅ |
 | F8 | pendiente |
