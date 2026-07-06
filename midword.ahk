@@ -58,6 +58,19 @@ try DELAY_PEGAR := Max(0, Integer(OptGet("delay_pegar", "250")))
 DELAY_ARCHIVO := 1200
 try DELAY_ARCHIVO := Max(0, Integer(OptGet("delay_archivo", "1200")))
 SONIDO := OptGet("sonido", "0") = "1"
+
+; --- Contador de uso por atajo (uso.ini): rankea las sugerencias ---
+USE_FILE := A_ScriptDir "\uso.ini"
+useCount := Map(), useCount.CaseSense := "Off"
+try {
+    if FileExist(USE_FILE) {
+        for pair in StrSplit(IniRead(USE_FILE, "uso"), "`n") {
+            eq := InStr(pair, "=")
+            if eq
+                useCount[SubStr(pair, 1, eq - 1)] := Integer(SubStr(pair, eq + 1))
+        }
+    }
+}
 APPS_EXCL := []
 for a in StrSplit(OptGet("apps_excluidas", ""), "|")
     if Trim(a) != ""
@@ -92,7 +105,11 @@ RunSelfTest() {
     T("BSLen ascii", BSLen("hola") = 4)
     T("BSLen emoji", BSLen("hi😊") = 3)
     T("JoinNums", JoinNums([1, 2, 3]) = "1, 2, 3")
-    FileAppend(fails ? out : "SELFTEST OK (12 pruebas)`n", "*", "UTF-8")
+    T("Norm tildes/ñ", Norm("Canción Ñoña") = "cancion nona")
+    T("Fuzzy encuentra", FuzzyMatch("grc", "gracias") = true)
+    T("Fuzzy rechaza", FuzzyMatch("xyz", "gracias") = false)
+    T("Fuzzy corto no aplica", FuzzyMatch("g", "gracias") = false)
+    FileAppend(fails ? out : "SELFTEST OK (16 pruebas)`n", "*", "UTF-8")
     return fails
 }
 
@@ -496,6 +513,51 @@ HandleKeyDown(hook, vk, sc) {
         ResetState()
 }
 
+; minúsculas y sin tildes/ñ para que //numero encuentre "número"
+Norm(s) {
+    static rep := Map("á","a", "é","e", "í","i", "ó","o", "ú","u", "ü","u", "ñ","n")
+    out := ""
+    loop parse StrLower(s)
+        out .= rep.Has(A_LoopField) ? rep[A_LoopField] : A_LoopField
+    return out
+}
+
+; ¿pat es subsecuencia de s?  //grc encuentra "gracias"
+FuzzyMatch(pat, s) {
+    if StrLen(pat) < 2
+        return false
+    i := 1
+    loop parse s {
+        if A_LoopField = SubStr(pat, i, 1) {
+            i++
+            if i > StrLen(pat)
+                return true
+        }
+    }
+    return false
+}
+
+UseKey(e) {
+    return e.kind = "group" ? "grp:" e.name : e.trig
+}
+
+; orden estable por frecuencia de uso (más usados primero)
+SortByUse(arr) {
+    out := []
+    for e in arr {
+        c := useCount.Get(UseKey(e), 0)
+        pos := out.Length + 1
+        loop out.Length {
+            if useCount.Get(UseKey(out[A_Index]), 0) < c {
+                pos := A_Index
+                break
+            }
+        }
+        out.InsertAt(pos, e)
+    }
+    return out
+}
+
 UpdateSuggestions() {
     global entries, curTyped, eraseLen
     if AppExcluded() {
@@ -530,28 +592,41 @@ UpdateSuggestions() {
         HideSuggestions()
         return
     }
-    ; primero coincidencias de prefijo (los grupos aparecen como UNA
-    ; fila); luego coincidencias dentro del nombre o del texto
-    m := [], m2 := []
+    ; niveles de coincidencia (sin tildes ni mayúsculas): 1) prefijo
+    ; (los grupos son UNA fila), 2) dentro del nombre o del texto,
+    ; 3) subsecuencia difusa (//grc → gracias)
+    tN := Norm(typed)
+    m := [], m2 := [], m3 := []
     for entry in order {
         if entry.kind = "group" {
-            if typed = "" || InStr(entry.name, typed) = 1
+            nameN := Norm(entry.name)
+            if typed = "" || InStr(nameN, tN) = 1
                 m.Push(entry)                          ; fila única desglosable
-            else if InStr(typed, entry.name) = 1 {
+            else if InStr(tN, nameN) = 1 {
                 for vTrig in entry.variants            ; //con1 filtra con10, con15…
-                    if InStr(vTrig, typed) = 1
+                    if InStr(Norm(vTrig), tN) = 1
                         m.Push({kind: "item", trig: vTrig})
-            } else if InStr(entry.name, typed) || InStr(entry.template, typed)
+            } else if InStr(nameN, tN) || InStr(Norm(entry.template), tN)
                 m2.Push(entry)
+            else if FuzzyMatch(tN, nameN)
+                m3.Push(entry)
         } else {
-            txt := shortcuts[entry.trig]
-            if typed = "" || InStr(entry.trig, typed) = 1
+            trigN := Norm(entry.trig)
+            if typed = "" || InStr(trigN, tN) = 1
                 m.Push(entry)
-            else if InStr(entry.trig, typed) || InStr(txt, typed)
+            else if InStr(trigN, tN) || InStr(Norm(shortcuts[entry.trig]), tN)
                 m2.Push(entry)
+            else if FuzzyMatch(tN, trigN)
+                m3.Push(entry)
         }
     }
+    if typed != "" {          ; con filtro: los más usados arriba en cada nivel
+        m := SortByUse(m)
+        m2 := SortByUse(m2)
+    }
     for entry in m2
+        m.Push(entry)
+    for entry in m3
         m.Push(entry)
     if !m.Length {
         HideSuggestions()
@@ -678,9 +753,9 @@ BuildMenu() {
 
         bar := sugGui.Add("Text", "x1 y" y " w4 h" RH " Background" (sel ? CLR_ACCENT : rowBg))
         sugGui.SetFont("s10 c" CLR_ACC_DARK " w700", "Consolas")
-        t := sugGui.Add("Text", "x5 y" y " w" TW " h" RH " Background" rowBg " +0x200", "  " EntryLabel(entry))
+        t := sugGui.Add("Text", "x5 y" y " w" TW " h" RH " Background" rowBg " +0x200 +0x4000", "  " EntryLabel(entry))
         sugGui.SetFont("s10 c" CLR_BODY " w400", "Segoe UI")
-        pv := sugGui.Add("Text", "x" (5 + TW) " y" y " w" (W - 1 - 5 - TW) " h" RH " Background" rowBg " +0x200", EntryPreview(entry))
+        pv := sugGui.Add("Text", "x" (5 + TW) " y" y " w" (W - 1 - 5 - TW) " h" RH " Background" rowBg " +0x200 +0x4000", EntryPreview(entry))
 
         for ctrl in [bar, t, pv] {
             ctrl.OnEvent("Click", AcceptIndex.Bind(i))
@@ -1119,6 +1194,7 @@ AcceptKey() {
 ExpandTrig(trig) {
     global typedBuf, curTyped, lastIns, lastTypedTxt, lastInsTick
     txt := shortcuts[trig]
+    grpName := subEntry ? subEntry.name : ""   ; antes de cerrar los submenús
     HideSuggestions()
     if eraseLen > 0
         SendInput("{BS " eraseLen "}")
@@ -1126,6 +1202,14 @@ ExpandTrig(trig) {
     lastIns := InsertText(txt)
     lastTypedTxt := eraseLen > 0 ? PREFIX curTyped : ""
     lastInsTick := A_TickCount
+    ; contador de uso: rankea las próximas sugerencias
+    useCount[trig] := useCount.Get(trig, 0) + 1
+    try IniWrite(useCount[trig], USE_FILE, "uso", trig)
+    if grpName != "" {   ; venía del desglose: acredita también al grupo
+        gk := "grp:" grpName
+        useCount[gk] := useCount.Get(gk, 0) + 1
+        try IniWrite(useCount[gk], USE_FILE, "uso", gk)
+    }
     if SONIDO
         SoundBeep(1400, 60)
     typedBuf := ""

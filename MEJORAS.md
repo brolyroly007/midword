@@ -88,7 +88,7 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 - ⏭️ OMITIDO — 🟡 **2.7 Estado global disperso**
   > Decisión deliberada: es un refactor cosmético de ~1600 líneas con cientos de renombres y alto riesgo de regresión en código de UI que el selftest no cubre, sin beneficio funcional para el usuario. CONTRIBUTING documenta el estilo actual. Si se retoma, hacerlo con el selftest (2.8) como red y por módulos pequeños.
 - ✅ HECHO — 🟡 **2.8 Sin pruebas**
-  > `midword.ahk --selftest`: 12 asserts sobre las funciones puras (`AutoTok`, `ParseLevel`, `SerializeAtajo` + roundtrip, `BSLen`, `JoinNums`), sale con código ≠0 si falla. Integrado como paso del CI y de `recompilar.ps1`. Pasa 12/12.
+  > `midword.ahk --selftest`: asserts sobre las funciones puras (`AutoTok`, `ParseLevel`, `SerializeAtajo` + roundtrip, `BSLen`, `JoinNums`, `Norm`, `FuzzyMatch`), sale con código ≠0 si falla. Integrado como paso del CI y de `recompilar.ps1`. Pasa 16/16.
 - 🔵 **2.9 IME / teclados con teclas muertas**: InputHook + tildes con teclas muertas funciona en layout latinoamericano, pero con IME (chino/japonés) no captura. Documentar como limitación conocida.
 - ✅ HECHO — 🔵 **2.10 Constante de versión**
   > `VERSION := "1.3.0"` + directivas `;@Ahk2Exe-SetVersion/SetName/SetDescription/SetCopyright` (el exe compilado lleva metadatos) + versión visible en el tooltip del ícono de bandeja.
@@ -101,13 +101,17 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > Toggle "Pausar (no sugerir)" en la bandeja (detiene el InputHook y limpia el estado) + hotkey opcional `hotkey_pausa` en `midword.ini` + tooltip del icono cambia a "(en pausa)". Pendiente menor: icono gris dedicado.
 - ✅ HECHO — 🟠 **3.2 Deshacer expansión**
   > Backspace dentro de los 10 s posteriores a una expansión borra el texto insertado (contando por code points, no unidades UTF-16 — los emojis se borran bien) y restaura lo escrito (`//atajo`). Se cancela al escribir, hacer clic o mover el caret. No aplica a atajos con `{cursor}` ni de archivo.
-- 🟡 **3.3 Coincidencia sin tildes**: buscar `//numero` no encuentra un atajo cuyo texto dice "número". Normalizar con el mismo mapa de `AutoTok` al comparar.
-- 🟡 **3.4 Búsqueda difusa**: coincidencia por subsecuencia (`//grc` → `gracias`) además de prefijo/contiene.
-- 🟡 **3.5 Orden por frecuencia de uso**: contar usos por atajo (persistido) y rankear las coincidencias; los más usados primero.
+- ✅ HECHO — 🟡 **3.3 Coincidencia sin tildes**
+  > `Norm()` (minúsculas, sin tildes/ñ) aplicado a ambos lados de todas las comparaciones: `//numero` encuentra "número".
+- ✅ HECHO — 🟡 **3.4 Búsqueda difusa**
+  > `FuzzyMatch()` por subsecuencia (mínimo 2 letras) como tercer nivel de coincidencia: `//grc` → `gracias`. Los niveles se muestran en orden: prefijo → contiene → difusa.
+- ✅ HECHO — 🟡 **3.5 Orden por frecuencia de uso**
+  > Contador persistido en `uso.ini` (gitignored): cada expansión incrementa el trigger (y su grupo si vino del desglose); con filtro activo, cada nivel de coincidencia se ordena por uso (orden estable). Sin filtro se respeta el orden del archivo.
 - ✅ HECHO — 🟡 **3.6 Lista negra/blanca de aplicaciones**
   > `apps_excluidas=Code.exe|WindowsTerminal.exe` en `midword.ini`; `AppExcluded()` compara el exe de la ventana activa al inicio de `UpdateSuggestions` (bloquea menú y expansión instantánea).
 - 🟡 **3.7 Tema oscuro del menú**: la paleta es fija (crema). Detectar el tema de Windows (`AppsUseLightTheme`) y ofrecer paleta oscura.
-- 🟡 **3.8 Truncado visual sin elipsis**: la columna del trigger se corta a `TW=200px` sin "…". Añadir elipsis o tooltip.
+- ✅ HECHO — 🟡 **3.8 Truncado visual sin elipsis**
+  > Estilo `SS_ENDELLIPSIS` (+0x4000) en las columnas de trigger y vista previa del menú: lo cortado muestra "…".
 - 🔵 **3.9 Scroll en el menú**: con más de 10 coincidencias solo dice "sigue escribiendo… (+N)". Permitir bajar con ↓ más allá de la fila 10 (paginado o scroll real).
 - 🔵 **3.10 Sombra de la ventana**: al ser `-Caption` no hay sombra DWM; en Win11 se puede pedir esquina redondeada nativa (`DWMWA_WINDOW_CORNER_PREFERENCE=33`) y sombra, en vez de `WinSetRegion` (que produce bordes dentados).
 - 🔵 **3.11 Números rápidos**: `Alt+1..9` (o `Ctrl+número`) para insertar la fila N sin flechas.
