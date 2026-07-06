@@ -7,10 +7,12 @@ Estado global: sintaxis ✅ · selftest 18/18 ✅ · smoke de arranque ✅ — p
 
 ---
 
-## 🔴 F1 — `ExpandTrig` revienta si el atajo desapareció del archivo
+## ✅ HECHO — 🔴 F1 — `ExpandTrig` revienta si el atajo desapareció del archivo
+> Fix: guard `if !shortcuts.Has(trig) { ResetState(); return }` al inicio de `ExpandTrig`.
 `txt := shortcuts[trig]` sin guard. Escenario: el menú está abierto, el timer de 3 s recarga un `atajos.txt` editado por fuera donde ese atajo ya no existe, y el usuario presiona Enter → excepción (va a `midword.log`, pero la expansión muere y lo escrito queda a medias). Fix: `if !shortcuts.Has(trig) { ResetState(); return }` al inicio.
 
-## 🔴 F2 — Cancelar un `{input:…}` pierde lo que habías escrito
+## ✅ HECHO — 🔴 F2 — Cancelar un `{input:…}` pierde lo que habías escrito
+> Fix: nuevo flag `expandCanceled` que `InsertText` activa cuando `ResolveVars` devuelve false; `ExpandTrig` lo detecta y reescribe lo borrado con `SendText(PREFIX curTyped)`, sin contar uso ni sonar ni dejar deshacer colgado.
 `ExpandTrig` borra `//atajo` con backspaces ANTES de llamar a `InsertText`; si el usuario cancela el InputBox, `ResolveVars` devuelve false y no se inserta nada — pero lo tipeado ya se borró. Fix: si `InsertText` devolvió `""` por cancelación, reescribir lo borrado (`SendText(PREFIX curTyped)`); distinguir "canceló" de "no hay deshacer" (p. ej. `ResolveVars` con código de retorno propio o flag global).
 
 ## 🟠 F3 — "Duplicar" no marca el formulario como sucio
@@ -36,8 +38,8 @@ El menú busca con `Norm()` (sin tildes/mayúsculas) pero `RefreshMgrList` compa
 ## Registro
 | Falla | Estado |
 |---|---|
-| F1 | pendiente |
-| F2 | pendiente |
+| F1 | ✅ |
+| F2 | ✅ |
 | F3 | pendiente |
 | F4 | pendiente |
 | F5 | pendiente |

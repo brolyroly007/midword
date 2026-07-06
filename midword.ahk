@@ -176,6 +176,7 @@ eraseLen := 0           ; caracteres a borrar al insertar
 lastIns := ""           ; texto de la última expansión (para deshacer)
 lastTypedTxt := ""      ; lo que el usuario había escrito (//atajo)
 lastInsTick := 0        ; momento de la última expansión
+expandCanceled := false ; el usuario canceló un {input:…} al expandir
 suggesting := false
 menuNav := false        ; el usuario ya navegó el menú (flechas/mouse)
 entries := []           ; entradas mostradas en el menú principal
@@ -1361,7 +1362,11 @@ AcceptKey() {
 
 ; Borra lo escrito (//xxx) y lo reemplaza por el texto del atajo
 ExpandTrig(trig) {
-    global typedBuf, curTyped, lastIns, lastTypedTxt, lastInsTick
+    global typedBuf, curTyped, lastIns, lastTypedTxt, lastInsTick, expandCanceled
+    if !shortcuts.Has(trig) {   ; pudo desaparecer tras una recarga externa
+        ResetState()
+        return
+    }
     txt := shortcuts[trig]
     grpName := subEntry ? subEntry.name : ""   ; antes de cerrar los submenús
     HideSuggestions()
@@ -1369,6 +1374,14 @@ ExpandTrig(trig) {
         SendInput("{BS " eraseLen "}")
     Sleep 50
     lastIns := InsertText(txt)
+    if expandCanceled {          ; canceló un {input:…}: devolver lo escrito
+        expandCanceled := false
+        lastIns := ""
+        if eraseLen > 0
+            SendText(PREFIX curTyped)
+        typedBuf := "", curTyped := ""
+        return
+    }
     lastTypedTxt := eraseLen > 0 ? PREFIX curTyped : ""
     lastInsTick := A_TickCount
     ; contador de uso: rankea las próximas sugerencias
@@ -1545,8 +1558,10 @@ InsertText(txt) {
         InsertFile(Trim(SubStr(txt, 9)))
         return ""
     }
-    if !ResolveVars(&txt)
+    if !ResolveVars(&txt) {
+        global expandCanceled := true
         return ""
+    }
     txt := StrReplace(txt, Chr(2), "{")
     ; teclear: escribe tecla por tecla (para apps que bloquean Ctrl+V)
     if SubStr(txt, 1, 8) = "teclear:" {
