@@ -189,11 +189,16 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > Badges de release, descargas, CI y licencia en el README. Los topics y el social preview se configuran en GitHub al pushear (manual o `gh repo edit --add-topic autohotkey --add-topic text-expander …`).
 - ✅ HECHO — 🟡 **7.3 CHANGELOG.md**
   > Creado con las 3 versiones publicadas y una sección "[Sin publicar]" con todo lo de esta tanda de mejoras.
-- 🟡 **7.4 README en inglés** (`README.en.md`): el nicho hispano es el foco, pero un text expander gratis MIT tiene público global; duplica el alcance con una hora de trabajo.
-- 🟡 **7.5 Verificar Discussions**: `config.yml` enlaza a Discussions; si no está habilitado en el repo, el enlace da 404.
-- 🔵 **7.6 Comparativa honesta**: sección "¿Por qué Midword y no espanso/Beeftext/PhraseExpress?" — el diferencial real es el menú de autocompletado visual + submenús en cascada + español + prompt de IA incluido.
-- 🔵 **7.7 Wiki o docs/ con recetas**: "atajos para ventas por WhatsApp", "atajos para soporte", "atajos académicos" — contenido SEO que además alimenta el marketing de RedactorIA.
-- 🔵 **7.8 Historial de git**: verificar que el exe/mp4 no quedaron en commits viejos inflando el clone (el rebrand tocó binarios); si pesan, `git filter-repo` antes de que el repo crezca.
+- ✅ HECHO — 🟡 **7.4 README en inglés**
+  > `README.en.md` completo (features, install, syntax, comparativa breve) con enlaces cruzados entre ambos idiomas.
+- ⏭️ OMITIDO — 🟡 **7.5 Verificar Discussions**
+  > Requiere revisar/activar la configuración del repo en GitHub (acción sobre el servicio externo). Al pushear: Settings → Features → Discussions, o cambiar el enlace de `config.yml` a issues.
+- ✅ HECHO — 🔵 **7.6 Comparativa honesta**
+  > Sección "¿Por qué Midword y no espanso o Beeftext?" en el README con tabla honesta (incluye dónde ganan los otros).
+- ✅ HECHO — 🔵 **7.7 Wiki o docs/ con recetas**
+  > `docs/recetas.md`: 5 paquetes listos para pegar (ventas WhatsApp, académico, inmobiliaria, delivery, soporte) usando las variables nuevas; enlazado desde el README.
+- ✅ HECHO — 🔵 **7.8 Historial de git**
+  > Auditado con `git rev-list --objects`: el blob más grande es `demo.gif` (3.3 MB, intencional); ni el exe ni el mp4 entraron nunca al historial. No hace falta `filter-repo`.
 
 ---
 

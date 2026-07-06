@@ -20,6 +20,8 @@ Escribe `//atajo` en cualquier aplicación —WhatsApp Web, Word, Telegram, tu n
 
 *¿Respondes lo mismo 50 veces al día? Esto es para ti.*
 
+*English: [README.en.md](README.en.md)*
+
 </div>
 
 ---
@@ -91,7 +93,25 @@ Los cambios se recargan solos (~3 s después de guardar). Usa `\n` para saltos d
 
 ## 🤖 Generar atajos con IA
 
-Copia el contenido de [`PROMPT_PARA_IA.txt`](PROMPT_PARA_IA.txt), pégalo en cualquier IA, describe tu negocio al final, y pega el resultado en el gestor (**Importar desde IA**) o directo en `atajos.txt`.
+Copia el contenido de [`PROMPT_PARA_IA.txt`](PROMPT_PARA_IA.txt), pégalo en cualquier IA, describe tu negocio al final, y pega el resultado en el gestor (**Importar IA**) o directo en `atajos.txt`.
+
+¿Prefieres algo listo? Mira las [**recetas por rubro**](docs/recetas.md): ventas por WhatsApp, académico, delivery, inmobiliaria y soporte.
+
+## 🆚 ¿Por qué Midword y no espanso o Beeftext?
+
+Los tres son buenos y gratuitos — elige según tu flujo:
+
+| | **Midword** | espanso | Beeftext |
+|---|---|---|---|
+| Menú de autocompletado visual junto al cursor | ✅ estilo WhatsApp | parcial (search bar aparte) | ❌ |
+| Grupos desglosables en cascada (montos, formatos…) | ✅ 2 niveles | ❌ | ❌ |
+| Adjuntar archivos (imagen/PDF a WhatsApp) | ✅ | ❌ | ❌ |
+| Prompt listo para generar atajos con IA | ✅ | ❌ | ❌ |
+| Todo en español (UI, docs, soporte) | ✅ | ❌ | ❌ |
+| Multiplataforma (Mac/Linux) | ❌ solo Windows | ✅ | ❌ solo Windows |
+| Sincronización propia entre PCs | manual (Exportar/Importar) | vía paquetes/dotfiles | ❌ |
+
+Si vives en WhatsApp Web respondiendo clientes en español, Midword está hecho exactamente para ti. Si necesitas Mac/Linux o cientos de snippets programables, espanso es una gran opción.
 
 ## 🛡️ ¿Tu antivirus marca el exe?
 
