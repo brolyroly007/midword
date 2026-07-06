@@ -19,11 +19,12 @@ ARCHIVOS
 CÓMO AGREGAR ATAJOS (forma fácil — para cualquiera)
 Haz clic en el ícono de Midword en la bandeja (junto al reloj) y se abre el
 GESTOR: una ventana con la lista de tus atajos y un formulario.
-1. Botón "➕ Nuevo", escribe el nombre (ej: gracias) y el texto.
+1. Botón "+ Nuevo", escribe el nombre (ej: gracias) y el texto.
 2. ¿Quieres desglose tipo //con → montos? Escribe las opciones en
    "Desglose nivel 1", una por línea (5, 10, 15…), y usa el botón {1}
    para marcar dónde va la opción dentro del texto. El nivel 2 igual, con {2}.
-3. Mira la vista previa y presiona "💾 Guardar". Listo, ya funciona.
+3. Mira la vista previa y presiona "Guardar". Listo, ya funciona.
+   Con "Exportar" copias tu atajos.txt para llevarlo a otra PC.
 También puedes "Importar desde IA": pega el bloque que te generó
 ChatGPT/Claude con PROMPT_PARA_IA.txt y se validan e importan solos.
 La lista muestra tus secciones (# ── Ventas ──): haz clic en una
@@ -104,5 +105,6 @@ DETALLES TÉCNICOS
       delay_archivo=1200   ← ídem para atajos de archivo
       apps_excluidas=Code.exe|WindowsTerminal.exe  ← no sugerir en esas apps
       sonido=1             ← bip suave al insertar
+      tema=oscuro          ← menú oscuro (claro | oscuro | auto)
       hotkey_pausa=^!m     ← Ctrl+Alt+M pausa/reanuda (sintaxis AHK)
       hotkey_gestor=^!g    ← Ctrl+Alt+G abre el gestor

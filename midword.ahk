@@ -41,6 +41,7 @@ CONFIG := A_ScriptDir "\atajos.txt"
 ;   delay_archivo=1200     → ídem para atajos de archivo
 ;   apps_excluidas=Code.exe|WindowsTerminal.exe → no sugerir en esas apps
 ;   sonido=1               → bip suave al insertar
+;   tema=oscuro            → menú oscuro (claro | oscuro | auto; default auto)
 ;   hotkey_pausa=^!m       → atajo para pausar/reanudar (sintaxis de hotkeys de AHK)
 ;   hotkey_gestor=^!g      → atajo para abrir el gestor
 INI := A_ScriptDir "\midword.ini"
@@ -137,6 +138,22 @@ CLR_RED      := "C64B4B"   ; status_inactive
 CLR_RED_LITE := "F6E2E2"   ; rojo suave para el botón eliminar
 CLR_ONDARK   := "B7B6AE"   ; texto atenuado sobre el hero oscuro
 
+; --- Tema del menú de sugerencias (el gestor mantiene el tema claro) ---
+; midword.ini: tema=claro | oscuro | auto (default: auto = según Windows)
+TEMA := StrLower(OptGet("tema", "auto"))
+darkMenu := TEMA = "oscuro"
+if TEMA = "auto"
+    try darkMenu := !RegRead("HKCU\Software\Microsoft\Windows\CurrentVersion\Themes\Personalize", "AppsUseLightTheme")
+if darkMenu {
+    MNU_BG := "2A2A26", MNU_SURFACE := "1F1F1D", MNU_SURF_ALT := "262623"
+    MNU_BODY := "D6D5CE", MNU_MUTED := "8F8F86", MNU_ACCENT := "6A9E8C"
+    MNU_ACC_DARK := "8FBFA9", MNU_ACC_LITE := "2F3D37", MNU_BORDER := "3B3B37"
+} else {
+    MNU_BG := CLR_BG, MNU_SURFACE := CLR_SURFACE, MNU_SURF_ALT := CLR_SURF_ALT
+    MNU_BODY := CLR_BODY, MNU_MUTED := CLR_MUTED, MNU_ACCENT := CLR_ACCENT
+    MNU_ACC_DARK := CLR_ACC_DARK, MNU_ACC_LITE := CLR_ACC_LITE, MNU_BORDER := CLR_BORDER
+}
+
 ; --- Datos ---
 rawLines := []          ; líneas del archivo tal cual (para editar sin perder comentarios)
 shortcuts := Map()      ; atajo -> texto completo (incluye variantes)
@@ -184,6 +201,8 @@ mgrSelLine := 0         ; línea de atajos.txt en edición (0 = atajo nuevo)
 mgrSelRaw := ""         ; contenido original de esa línea, para reubicarla
                         ; si el archivo cambió por fuera mientras se editaba
 mgrNewSec := ""         ; sección donde insertar los atajos nuevos
+mgrDirty := false       ; el formulario tiene cambios sin guardar
+mgrCardL := 0, mgrCardR := 0, mgrPills := []   ; para el resize vertical
 impGui := 0, impEdit := 0
 ; submenú nivel 2
 sub2Gui := 0
@@ -731,16 +750,16 @@ BuildMenu() {
     menuTW := TW, menuFooter := 0
 
     sugGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000")
-    sugGui.BackColor := CLR_BORDER
+    sugGui.BackColor := MNU_BORDER
     sugGui.MarginX := 0, sugGui.MarginY := 0
 
-    ; --- header crema: título + botón "ver todos" + hints ---
-    sugGui.SetFont("s9 c" CLR_ACCENT " w700", "Segoe UI")
-    sugGui.Add("Text", "x1 y1 w110 h" HH " Background" CLR_BG " +0x200", "   ●  Midword")
-    btn := sugGui.Add("Text", "x111 y1 w90 h" HH " Background" CLR_BG " +0x200", "  ☰ ver todos")
+    ; --- header: título + botón "ver todos" + hints ---
+    sugGui.SetFont("s9 c" MNU_ACCENT " w700", "Segoe UI")
+    sugGui.Add("Text", "x1 y1 w110 h" HH " Background" MNU_BG " +0x200", "   ●  Midword")
+    btn := sugGui.Add("Text", "x111 y1 w90 h" HH " Background" MNU_BG " +0x200", "  ☰ ver todos")
     btn.OnEvent("Click", ShowAllClick)
-    sugGui.SetFont("s8 c" CLR_MUTED " w400", "Segoe UI")
-    sugGui.Add("Text", "x201 y1 w" (W - 2 - 200) " h" HH " Background" CLR_BG " +0x200 Right",
+    sugGui.SetFont("s8 c" MNU_MUTED " w400", "Segoe UI")
+    sugGui.Add("Text", "x201 y1 w" (W - 2 - 200) " h" HH " Background" MNU_BG " +0x200 Right",
         "↑↓ elegir  ·  ▸ desglosar  ·  Tab/Enter insertar  ·  Esc   ")
 
     ; --- filas ---
@@ -749,12 +768,12 @@ BuildMenu() {
         entry := entries[i]
         y := 1 + HH + (i - 1) * RH
         sel := (i = selIdx)
-        rowBg := sel ? CLR_ACC_LITE : CLR_SURFACE
+        rowBg := sel ? MNU_ACC_LITE : MNU_SURFACE
 
-        bar := sugGui.Add("Text", "x1 y" y " w4 h" RH " Background" (sel ? CLR_ACCENT : rowBg))
-        sugGui.SetFont("s10 c" CLR_ACC_DARK " w700", "Consolas")
+        bar := sugGui.Add("Text", "x1 y" y " w4 h" RH " Background" (sel ? MNU_ACCENT : rowBg))
+        sugGui.SetFont("s10 c" MNU_ACC_DARK " w700", "Consolas")
         t := sugGui.Add("Text", "x5 y" y " w" TW " h" RH " Background" rowBg " +0x200 +0x4000", "  " EntryLabel(entry))
-        sugGui.SetFont("s10 c" CLR_BODY " w400", "Segoe UI")
+        sugGui.SetFont("s10 c" MNU_BODY " w400", "Segoe UI")
         pv := sugGui.Add("Text", "x" (5 + TW) " y" y " w" (W - 1 - 5 - TW) " h" RH " Background" rowBg " +0x200 +0x4000", EntryPreview(entry))
 
         for ctrl in [bar, t, pv] {
@@ -765,8 +784,8 @@ BuildMenu() {
     }
 
     if extra > 0 {
-        sugGui.SetFont("s8 c" CLR_MUTED " w400", "Segoe UI")
-        menuFooter := sugGui.Add("Text", "x1 y" (1 + HH + n * RH) " w" (W - 2) " h" FH " Background" CLR_SURF_ALT " +0x200",
+        sugGui.SetFont("s8 c" MNU_MUTED " w400", "Segoe UI")
+        menuFooter := sugGui.Add("Text", "x1 y" (1 + HH + n * RH) " w" (W - 2) " h" FH " Background" MNU_SURF_ALT " +0x200",
             "      sigue escribiendo… (+" extra " atajos más)")
     }
 
@@ -873,20 +892,20 @@ OpenSub(i) {
     H2 := 1 + n * RH + 1
 
     subGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000")
-    subGui.BackColor := CLR_BORDER
+    subGui.BackColor := MNU_BORDER
     subGui.MarginX := 0, subGui.MarginY := 0
 
     loop n {
         j := A_Index
         y := 1 + (j - 1) * RH
-        subGui.SetFont("s10 c" CLR_ACC_DARK " w700", "Consolas")
-        o := subGui.Add("Text", "x1 y" y " w" LW " h" RH " Background" CLR_SURFACE " +0x200", "   " d1[j].lab)
+        subGui.SetFont("s10 c" MNU_ACC_DARK " w700", "Consolas")
+        o := subGui.Add("Text", "x1 y" y " w" LW " h" RH " Background" MNU_SURFACE " +0x200", "   " d1[j].lab)
         if hasL2 {
-            subGui.SetFont("s10 c" CLR_MUTED " w400", "Segoe UI")
-            tr := subGui.Add("Text", "x" (1 + LW) " y" y " w" (W2 - 2 - LW) " h" RH " Background" CLR_SURFACE " +0x200", "▸")
+            subGui.SetFont("s10 c" MNU_MUTED " w400", "Segoe UI")
+            tr := subGui.Add("Text", "x" (1 + LW) " y" y " w" (W2 - 2 - LW) " h" RH " Background" MNU_SURFACE " +0x200", "▸")
         } else {
-            subGui.SetFont("s9 c" CLR_MUTED " w400", "Consolas")
-            tr := subGui.Add("Text", "x" (1 + LW) " y" y " w" (W2 - 2 - LW) " h" RH " Background" CLR_SURFACE " +0x200", PREFIX entry.variants[j])
+            subGui.SetFont("s9 c" MNU_MUTED " w400", "Consolas")
+            tr := subGui.Add("Text", "x" (1 + LW) " y" y " w" (W2 - 2 - LW) " h" RH " Background" MNU_SURFACE " +0x200", PREFIX entry.variants[j])
         }
         for ctrl in [o, tr] {
             ctrl.OnEvent("Click", AcceptSub.Bind(j))
@@ -919,7 +938,7 @@ CloseSub() {
 
 StyleSubRow(j, sel) {
     r := subRows[j]
-    bg := sel ? CLR_ACC_LITE : CLR_SURFACE
+    bg := sel ? MNU_ACC_LITE : MNU_SURFACE
     r.opt.Opt("Background" bg), r.trig.Opt("Background" bg)
     r.opt.Redraw(), r.trig.Redraw()
 }
@@ -962,14 +981,14 @@ OpenSub2(j) {
     H3 := 1 + n * RH + 1
 
     sub2Gui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000")
-    sub2Gui.BackColor := CLR_BORDER
+    sub2Gui.BackColor := MNU_BORDER
     sub2Gui.MarginX := 0, sub2Gui.MarginY := 0
 
     loop n {
         k := A_Index
         y := 1 + (k - 1) * RH
-        sub2Gui.SetFont("s10 c" CLR_ACC_DARK " w700", "Consolas")
-        o := sub2Gui.Add("Text", "x1 y" y " w" (W3 - 2) " h" RH " Background" CLR_SURFACE " +0x200", "   " d2[k].lab)
+        sub2Gui.SetFont("s10 c" MNU_ACC_DARK " w700", "Consolas")
+        o := sub2Gui.Add("Text", "x1 y" y " w" (W3 - 2) " h" RH " Background" MNU_SURFACE " +0x200", "   " d2[k].lab)
         o.OnEvent("Click", AcceptSub2.Bind(k))
         sub2ByHwnd[o.Hwnd] := k
         sub2Rows.Push(o)
@@ -1000,12 +1019,12 @@ SetSub2Sel(k) {
     if k = sub2Sel
         return
     if sub2Sel >= 1 && sub2Sel <= sub2Rows.Length {
-        sub2Rows[sub2Sel].Opt("Background" CLR_SURFACE)
+        sub2Rows[sub2Sel].Opt("Background" MNU_SURFACE)
         sub2Rows[sub2Sel].Redraw()
     }
     sub2Sel := k
     if k >= 1 && k <= sub2Rows.Length {
-        sub2Rows[k].Opt("Background" CLR_ACC_LITE)
+        sub2Rows[k].Opt("Background" MNU_ACC_LITE)
         sub2Rows[k].Redraw()
     }
 }
@@ -1014,8 +1033,8 @@ SetSub2Sel(k) {
 
 StyleRow(i, sel) {
     r := rows[i]
-    bg := sel ? CLR_ACC_LITE : CLR_SURFACE
-    r.bar.Opt("Background" (sel ? CLR_ACCENT : bg))
+    bg := sel ? MNU_ACC_LITE : MNU_SURFACE
+    r.bar.Opt("Background" (sel ? MNU_ACCENT : bg))
     r.trig.Opt("Background" bg)
     r.prev.Opt("Background" bg)
     r.bar.Redraw(), r.trig.Redraw(), r.prev.Redraw()
@@ -1373,15 +1392,18 @@ Pill(g, x, y, w, h, txt, bg, fg, cb, fontOpts := "s10 w700") {
 
 OpenManager(*) {
     global mgrGui, mgrLV, mgrSearch, mgrName, mgrInst, mgrText
-    global mgrL1, mgrL2, mgrPrev, mgrCount
+    global mgrL1, mgrL2, mgrPrev, mgrCount, mgrCardL, mgrCardR, mgrPills, mgrDirty
     if mgrGui {
         RefreshMgrList()
         mgrGui.Show()
         return
     }
-    mgrGui := Gui("-MaximizeBox", "Midword")
+    ; redimensionable solo en alto (ancho fijo 800): crece la lista
+    mgrGui := Gui("+Resize -MaximizeBox +MinSize800x516 +MaxSize800x", "Midword")
     mgrGui.BackColor := CLR_BG
-    mgrGui.OnEvent("Close", (*) => (mgrGui.Hide(), 1))
+    mgrGui.OnEvent("Close", MgrTryClose)
+    mgrGui.OnEvent("Escape", MgrTryClose)
+    mgrGui.OnEvent("Size", MgrSize)
     ; barra de título oscura, a juego con el hero
     try DllCall("dwmapi\DwmSetWindowAttribute", "ptr", mgrGui.Hwnd, "int", 20, "int*", 1, "int", 4)
 
@@ -1402,8 +1424,8 @@ OpenManager(*) {
     mgrCount := mgrGui.Add("Text", "x540 y54 w224 h20 Background" CLR_TEXT " Right", "")
 
     ; ===== tarjeta izquierda: buscador + lista =====
-    cardL := mgrGui.Add("Text", "x12 y106 w330 h354 Background" CLR_SURFACE)
-    RoundCtrl(cardL, 330, 354, 24)
+    mgrCardL := mgrGui.Add("Text", "x12 y106 w330 h354 Background" CLR_SURFACE)
+    RoundCtrl(mgrCardL, 330, 354, 24)
     mgrGui.SetFont("s9 w400 c" CLR_MUTED, "Segoe UI")
     mgrGui.Add("Text", "x30 y120 w200 Background" CLR_SURFACE, "Buscar atajo:")
     Pill(mgrGui, 256, 116, 30, 20, "▲", CLR_ACC_LITE, CLR_ACC_DARK, MgrMove.Bind(-1), "s8 w700")
@@ -1416,23 +1438,24 @@ OpenManager(*) {
     mgrLV.ModifyCol(1, 92), mgrLV.ModifyCol(2, 178)
 
     ; ===== tarjeta derecha: formulario =====
-    cardR := mgrGui.Add("Text", "x354 y106 w434 h354 Background" CLR_SURFACE)
-    RoundCtrl(cardR, 434, 354, 24)
+    mgrCardR := mgrGui.Add("Text", "x354 y106 w434 h354 Background" CLR_SURFACE)
+    RoundCtrl(mgrCardR, 434, 354, 24)
     X2 := 372
     mgrGui.SetFont("s9 w400 c" CLR_MUTED, "Segoe UI")
     mgrGui.Add("Text", "x" X2 " y118 w220 Background" CLR_SURFACE, "Nombre (lo escribirás como " PREFIX "nombre):")
     mgrGui.SetFont("s10 w400 c" CLR_TEXT, "Segoe UI")
     mgrName := mgrGui.Add("Edit", "x" X2 " y136 w180 Background" CLR_SURF_ALT)
-    mgrName.OnEvent("Change", (*) => UpdateMgrPreview())
+    mgrName.OnEvent("Change", (*) => (mgrDirty := true, UpdateMgrPreview()))
     mgrGui.SetFont("s9 w400 c" CLR_BODY, "Segoe UI")
     mgrInst := mgrGui.Add("Checkbox", "x" (X2 + 196) " y139 w200 Background" CLR_SURFACE, "Instantáneo (sin Tab)")
+    mgrInst.OnEvent("Click", (*) => (mgrDirty := true, UpdateMgrPreview()))
 
     mgrGui.SetFont("s9 w400 c" CLR_MUTED, "Segoe UI")
     mgrGui.Add("Text", "x" X2 " y168 w300 Background" CLR_SURFACE, "Texto a insertar (Enter = salto de línea):")
     Pill(mgrGui, X2 + 300, 160, 104, 26, "📎 archivo…", CLR_ACC_LITE, CLR_ACC_DARK, PickFile, "s9 w600")
     mgrGui.SetFont("s10 w400 c" CLR_TEXT, "Segoe UI")
     mgrText := mgrGui.Add("Edit", "x" X2 " y186 w398 h78 Multi WantReturn VScroll Background" CLR_SURF_ALT)
-    mgrText.OnEvent("Change", (*) => UpdateMgrPreview())
+    mgrText.OnEvent("Change", (*) => (mgrDirty := true, UpdateMgrPreview()))
 
     ; variables como mini-pills verdes
     vx := X2
@@ -1447,9 +1470,9 @@ OpenManager(*) {
     mgrGui.Add("Text", "x" (X2 + 206) " y300 w192 h28 Background" CLR_SURFACE, "Desglose nivel 2 — se abre tras`nel nivel 1; en el texto va {2}:")
     mgrGui.SetFont("s10 w400 c" CLR_TEXT, "Segoe UI")
     mgrL1 := mgrGui.Add("Edit", "x" X2 " y332 w192 h58 Multi WantReturn VScroll Background" CLR_SURF_ALT)
-    mgrL1.OnEvent("Change", (*) => UpdateMgrPreview())
+    mgrL1.OnEvent("Change", (*) => (mgrDirty := true, UpdateMgrPreview()))
     mgrL2 := mgrGui.Add("Edit", "x" (X2 + 206) " y332 w192 h58 Multi WantReturn VScroll Background" CLR_SURF_ALT)
-    mgrL2.OnEvent("Change", (*) => UpdateMgrPreview())
+    mgrL2.OnEvent("Change", (*) => (mgrDirty := true, UpdateMgrPreview()))
 
     mgrGui.SetFont("s8 w700 c" CLR_ACCENT, "Segoe UI")
     mgrGui.Add("Text", "x" X2 " y398 w200 Background" CLR_SURFACE, "VISTA PREVIA")
@@ -1458,12 +1481,14 @@ OpenManager(*) {
     RoundCtrl(mgrPrev, 398, 38, 12)
 
     ; ===== botonera pill =====
-    Pill(mgrGui, 12, 472, 104, 30, "+ Nuevo", CLR_ACC_LITE, CLR_ACC_DARK, MgrNew)
-    Pill(mgrGui, 124, 472, 104, 30, "Duplicar", CLR_ACC_LITE, CLR_ACC_DARK, MgrDup)
-    Pill(mgrGui, 236, 472, 104, 30, "Eliminar", CLR_RED_LITE, CLR_RED, MgrDelete)
-    Pill(mgrGui, 354, 472, 160, 30, "Importar desde IA", CLR_ACC_LITE, CLR_ACC_DARK, MgrImport)
-    Pill(mgrGui, 522, 472, 130, 30, "Abrir archivo", CLR_ACC_LITE, CLR_ACC_DARK, EditConfig)
-    Pill(mgrGui, 668, 472, 120, 30, "Guardar", CLR_ACCENT, "FFFFFF", MgrSave)
+    mgrPills := []
+    mgrPills.Push(Pill(mgrGui, 12, 472, 90, 30, "+ Nuevo", CLR_ACC_LITE, CLR_ACC_DARK, MgrNewBtn))
+    mgrPills.Push(Pill(mgrGui, 110, 472, 90, 30, "Duplicar", CLR_ACC_LITE, CLR_ACC_DARK, MgrDup))
+    mgrPills.Push(Pill(mgrGui, 208, 472, 90, 30, "Eliminar", CLR_RED_LITE, CLR_RED, MgrDelete))
+    mgrPills.Push(Pill(mgrGui, 306, 472, 122, 30, "Importar IA", CLR_ACC_LITE, CLR_ACC_DARK, MgrImport))
+    mgrPills.Push(Pill(mgrGui, 436, 472, 96, 30, "Exportar", CLR_ACC_LITE, CLR_ACC_DARK, MgrExport))
+    mgrPills.Push(Pill(mgrGui, 540, 472, 116, 30, "Abrir archivo", CLR_ACC_LITE, CLR_ACC_DARK, EditConfig))
+    mgrPills.Push(Pill(mgrGui, 664, 472, 124, 30, "Guardar", CLR_ACCENT, "FFFFFF", MgrSave))
 
     RefreshMgrList()
     MgrNew()
@@ -1473,6 +1498,55 @@ OpenManager(*) {
 InsertVar(v, *) {
     DllCall("user32\SendMessageW", "ptr", mgrText.Hwnd, "uint", 0xC2, "ptr", 1, "wstr", v)
     UpdateMgrPreview()
+}
+
+; cerrar (X o Esc) confirmando si hay cambios sin guardar
+MgrTryClose(*) {
+    if MgrDirtyOk()
+        mgrGui.Hide()
+    return 1
+}
+
+MgrDirtyOk() {
+    global mgrDirty
+    if !mgrDirty
+        return true
+    if MsgBox("Tienes cambios sin guardar en el formulario.`n`n¿Descartarlos?", "Midword", "YesNo Icon?") = "Yes" {
+        mgrDirty := false
+        return true
+    }
+    return false
+}
+
+; resize vertical: crecen las tarjetas y la lista; los botones bajan
+MgrSize(g, minMax, w, h) {
+    global
+    if minMax = -1 || !mgrLV
+        return
+    dh := Max(0, h - 516)
+    mgrCardL.Move(, , , 354 + dh), RoundCtrl(mgrCardL, 330, 354 + dh, 24)
+    mgrCardR.Move(, , , 354 + dh), RoundCtrl(mgrCardR, 434, 354 + dh, 24)
+    mgrLV.Move(, , , 270 + dh)
+    for p in mgrPills
+        p.Move(, 472 + dh)
+}
+
+MgrNewBtn(*) {
+    if MgrDirtyOk()
+        MgrNew()
+}
+
+; exporta atajos.txt (para llevarlo a otra PC; allá se usa Importar)
+MgrExport(*) {
+    f := FileSelect("S16", A_ScriptDir "\atajos-midword.txt", "Exportar atajos a…", "Texto (*.txt)")
+    if f = ""
+        return
+    try {
+        FileCopy(CONFIG, f, 1)
+        TrayTip("Atajos exportados a:`n" f, "Midword")
+    } catch as e {
+        MsgBox("No se pudo exportar: " e.Message, "Midword", "Icon!")
+    }
 }
 
 RefreshMgrList() {
@@ -1506,6 +1580,8 @@ MgrItemSelect(lv, item, selected) {
     if !(selected && item >= 1 && item <= mgrRows.Length)
         return
     e := mgrRows[item]
+    if !MgrDirtyOk()
+        return
     if e.kind = "sec" {          ; clic en una sección: los atajos nuevos
         MgrNew()                 ; se guardarán al final de esa sección
         mgrNewSec := e.name
@@ -1532,6 +1608,7 @@ LoadEntryToForm(entry) {
         mgrInst.Value := instant.Has(entry.trig) ? 1 : 0
     }
     UpdateMgrPreview()
+    global mgrDirty := false   ; lo recién cargado no cuenta como cambio
 }
 
 ; token automático a partir de la etiqueta: "APA 7" -> apa7, "10 páginas" -> 10
@@ -1623,12 +1700,13 @@ PickFile(*) {
 }
 
 MgrNew(*) {
-    global mgrSelLine, mgrSelRaw
+    global mgrSelLine, mgrSelRaw, mgrDirty
     mgrSelLine := 0, mgrSelRaw := ""
     mgrName.Value := "", mgrText.Value := ""
     mgrL1.Value := "", mgrL2.Value := ""
     mgrInst.Value := 0
     UpdateMgrPreview()
+    mgrDirty := false
 }
 
 MgrDup(*) {
@@ -1726,6 +1804,7 @@ MgrSave(*) {
     }
     mgrSelLine := idx
     mgrSelRaw := newLine
+    global mgrDirty := false
     SaveRawAndReload()
     TrayTip("Atajo " PREFIX name " guardado", "Midword")
 }

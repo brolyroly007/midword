@@ -109,7 +109,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > Contador persistido en `uso.ini` (gitignored): cada expansión incrementa el trigger (y su grupo si vino del desglose); con filtro activo, cada nivel de coincidencia se ordena por uso (orden estable). Sin filtro se respeta el orden del archivo.
 - ✅ HECHO — 🟡 **3.6 Lista negra/blanca de aplicaciones**
   > `apps_excluidas=Code.exe|WindowsTerminal.exe` en `midword.ini`; `AppExcluded()` compara el exe de la ventana activa al inicio de `UpdateSuggestions` (bloquea menú y expansión instantánea).
-- 🟡 **3.7 Tema oscuro del menú**: la paleta es fija (crema). Detectar el tema de Windows (`AppsUseLightTheme`) y ofrecer paleta oscura.
+- ✅ HECHO — 🟡 **3.7 Tema oscuro del menú**
+  > `tema=claro|oscuro|auto` en `midword.ini` (default auto: lee `AppsUseLightTheme` del registro). Paleta `MNU_*` separada para menú y submenús con variante oscura en armonía con el verde salvia. El gestor mantiene el tema claro (diseño BiPe de tarjetas), anotado como decisión.
 - ✅ HECHO — 🟡 **3.8 Truncado visual sin elipsis**
   > Estilo `SS_ENDELLIPSIS` (+0x4000) en las columnas de trigger y vista previa del menú: lo cortado muestra "…".
 - 🔵 **3.9 Scroll en el menú**: con más de 10 coincidencias solo dice "sigue escribiendo… (+N)". Permitir bajar con ↓ más allá de la fila 10 (paginado o scroll real).
@@ -125,16 +126,20 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > (a) Las secciones `# ── Nombre ──` aparecen como separadores en la lista; (b) al hacer clic en una sección (o editar un atajo de ella) los atajos nuevos se insertan al final de esa sección (`SectionInsertPos`); (c) botones ▲▼ reordenan el atajo seleccionado saltando comentarios (`MgrMove`).
 - ✅ HECHO — 🟠 **4.2 Aviso de conflicto instantáneo**
   > Al guardar un atajo instantáneo cuyo nombre es prefijo de otro atajo existente, el gestor avisa cuál chocaría y pide confirmación.
-- 🟡 **4.3 Ventana no redimensionable** (800×516 fijo) y sin `Esc` para cerrar. Con muchos atajos la lista de 270px queda corta.
-- 🟡 **4.4 Indicador de cambios sin guardar**: se puede cerrar o cambiar de selección con el formulario editado y se pierde todo sin aviso.
+- ✅ HECHO — 🟡 **4.3 Ventana no redimensionable**
+  > Redimensionable en alto (ancho fijo 800 vía `+MinSize/+MaxSize`): crecen las dos tarjetas y la lista, los botones bajan (`MgrSize` reaplica las regiones redondeadas). `Esc` cierra (con confirmación si hay cambios).
+- ✅ HECHO — 🟡 **4.4 Indicador de cambios sin guardar**
+  > Flag `mgrDirty` activado por cualquier edición del formulario; cerrar (X/Esc), cambiar de selección o "+ Nuevo" piden confirmación antes de descartar. Se limpia al guardar/cargar.
 - ✅ HECHO — 🟡 **4.5 Duplicados al importar**
   > `DoImport` compara contra los atajos existentes y dentro del propio bloque pegado: los duplicados se omiten y el resumen final lista esas líneas.
-- 🟡 **4.6 Botón Exportar**: para llevar atajos a otra PC (copia el archivo o las líneas seleccionadas al portapapeles). El caso "copiado de otra PC" ya se menciona en el código, pero solo existe la mitad (importar).
+- ✅ HECHO — 🟡 **4.6 Botón Exportar**
+  > Pill "Exportar" en la botonera (se compactó la fila para que quepan 7): guarda una copia de `atajos.txt` donde elijas; en la otra PC se usa Importar.
 - 🔵 **4.7 Probar atajo desde el gestor**: botón "Probar" que expande en un Edit de prueba, con variables resueltas.
 - 🔵 **4.8 Multi-selección para eliminar** varios de una vez.
 - ✅ HECHO — 🔵 **4.9 Atajo global para abrir el gestor**
   > `hotkey_gestor=^!g` en `midword.ini` (opcional, sin default para no chocar con otras apps).
-- 🔵 **4.10 Inconsistencia docs**: `LEEME.txt` menciona botones "➕ Nuevo", "💾 Guardar", "📋 Importar" con emoji; los reales dicen "+ Nuevo", "Guardar", "Importar desde IA". Alinear.
+- ✅ HECHO — 🔵 **4.10 Inconsistencia docs**
+  > LEEME alineado con los botones reales ("+ Nuevo", "Guardar", "Importar IA") y documenta Exportar, secciones y ▲▼.
 
 ---
 
