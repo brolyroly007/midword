@@ -27,6 +27,12 @@ jobs:
           if ($LASTEXITCODE -ne 0) { Write-Host "FALLO VALIDACION (exit=$LASTEXITCODE)"; exit 1 }
           Write-Host 'VALIDACION OK'
 
+      - name: Selftest del parser
+        shell: pwsh
+        run: |
+          & .\ahk\AutoHotkey64.exe /ErrorStdOut midword.ahk --selftest | Write-Host
+          if ($LASTEXITCODE -ne 0) { Write-Host "FALLO SELFTEST (exit=$LASTEXITCODE)"; exit 1 }
+
   release:
     # al pushear un tag v* compila el exe y lo adjunta al Release con su hash
     if: startsWith(github.ref, 'refs/tags/v')

@@ -79,13 +79,16 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > Helper `MonWork(x, y, …)` con `MonitorGetWorkArea`: el menú y los 2 submenús se posicionan dentro del monitor donde está el caret (fallback al primario).
 - ✅ HECHO — 🟠 **2.3 Caret en navegadores/Electron**
   > Nuevo fallback `AccCaretPos()`: MSAA `OBJID_CARET` vía `AccessibleObjectFromWindow` + `accLocation` (ComCall) con validación de tamaño para descartar rectángulos que no son caret. Cadena: `CaretGetPos` → MSAA → mouse. Refinamiento futuro posible: UIA `TextPattern2.GetCaretRange`.
-- 🟡 **2.4 Reconstrucción total del menú por tecla**: `BuildMenu()` destruye y recrea la GUI en cada pulsación → parpadeo y costo. Reusar la ventana actualizando textos/colores de las filas.
+- ✅ HECHO — 🟡 **2.4 Reconstrucción total del menú por tecla**
+  > Si la geometría no cambió (mismo nº de filas, mismo ancho de columna, mismo pie), `BuildMenu()` reusa la ventana actualizando solo textos y estilos — sin destruir/crear GUI, sin parpadeo. Solo reconstruye cuando cambia el layout.
 - ✅ HECHO — 🟡 **2.5 `HoverWatch` con polling de 80 ms**
   > Reemplazado por `OnMessage(0x200)`: el WM_MOUSEMOVE llega directo al control bajo el cursor y se busca su hwnd en los mapas de filas — cero polling, respuesta inmediata.
 - ✅ HECHO — 🟡 **2.6 Ancho de texto estimado con `StrLen * 9`**
   > Nueva `TextWidth()` con `GetTextExtentPoint32` (fuente real, corregido por DPI); la usan el menú principal y ambos submenús.
-- 🟡 **2.7 Estado global disperso**: ~40 variables globales. Sin romper el "un solo archivo", agrupar en clases (`class SuggestMenu`, `class SubMenu`, `class Manager`, `class Config`) mejora mantenibilidad y evita bugs de `global` olvidados.
-- 🟡 **2.8 Sin pruebas**: extraer el parser (`LoadShortcuts`/`ParseLevel`/`SerializeAtajo`/`AutoTok`) a funciones puras y escribir un `tests.ahk` que corra asserts en CI (roundtrip parse→serialize→parse).
+- ⏭️ OMITIDO — 🟡 **2.7 Estado global disperso**
+  > Decisión deliberada: es un refactor cosmético de ~1600 líneas con cientos de renombres y alto riesgo de regresión en código de UI que el selftest no cubre, sin beneficio funcional para el usuario. CONTRIBUTING documenta el estilo actual. Si se retoma, hacerlo con el selftest (2.8) como red y por módulos pequeños.
+- ✅ HECHO — 🟡 **2.8 Sin pruebas**
+  > `midword.ahk --selftest`: 12 asserts sobre las funciones puras (`AutoTok`, `ParseLevel`, `SerializeAtajo` + roundtrip, `BSLen`, `JoinNums`), sale con código ≠0 si falla. Integrado como paso del CI y de `recompilar.ps1`. Pasa 12/12.
 - 🔵 **2.9 IME / teclados con teclas muertas**: InputHook + tildes con teclas muertas funciona en layout latinoamericano, pero con IME (chino/japonés) no captura. Documentar como limitación conocida.
 - ✅ HECHO — 🔵 **2.10 Constante de versión**
   > `VERSION := "1.3.0"` + directivas `;@Ahk2Exe-SetVersion/SetName/SetDescription/SetCopyright` (el exe compilado lleva metadatos) + versión visible en el tooltip del ícono de bandeja.

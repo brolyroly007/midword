@@ -63,6 +63,39 @@ for a in StrSplit(OptGet("apps_excluidas", ""), "|")
     if Trim(a) != ""
         APPS_EXCL.Push(StrLower(Trim(a)))
 
+; --- Selftest del parser:  AutoHotkey64.exe midword.ahk --selftest ---
+; Solo usa funciones puras (no toca atajos.txt ni crea GUI). Sale con
+; código 0 si todo pasa; lo corren el CI y recompilar.ps1.
+if A_Args.Length && A_Args[1] = "--selftest"
+    ExitApp(RunSelfTest())
+
+RunSelfTest() {
+    fails := 0, out := ""
+    T(name, cond) {
+        if !cond {
+            fails++
+            out .= "FALLA: " name "`n"
+        }
+    }
+    T("AutoTok básico", AutoTok("APA 7") = "apa7")
+    T("AutoTok número gana", AutoTok("10 páginas") = "10")
+    T("AutoTok tildes/ñ", AutoTok("Añadir Sección") = "anadirsecc")
+    l := ParseLevel("5`n10`napa: APA 7")
+    T("ParseLevel largo", l.Length = 3)
+    T("ParseLevel tok automático", l[1].tok = "5" && l[1].lab = "5")
+    T("ParseLevel tok manual", l[3].tok = "apa" && l[3].lab = "APA 7")
+    s := SerializeAtajo("con", 0, "texto {1} soles", l, [])
+    T("Serialize grupo", s = "con[5|10|apa:APA 7]=texto {1} soles")
+    T("Serialize instantáneo", SerializeAtajo("ok", 1, "a`nb", [], []) = "ok!=a\nb")
+    rt := ParseLevel(LevelToText(l))
+    T("Roundtrip nivel", rt.Length = 3 && rt[3].tok = "apa" && rt[3].lab = "APA 7")
+    T("BSLen ascii", BSLen("hola") = 4)
+    T("BSLen emoji", BSLen("hi😊") = 3)
+    T("JoinNums", JoinNums([1, 2, 3]) = "1, 2, 3")
+    FileAppend(fails ? out : "SELFTEST OK (12 pruebas)`n", "*", "UTF-8")
+    return fails
+}
+
 ; --- Errores de runtime: registrar en midword.log en vez del diálogo crudo ---
 OnError(LogError)
 LogError(err, mode) {
@@ -114,6 +147,8 @@ rows := []
 rowByHwnd := Map()
 selIdx := 1
 menuX := 0, menuY := 0, menuHH := 0, menuRH := 0, menuW := 0
+menuTW := 0             ; ancho de la columna del trigger (para reusar la GUI)
+menuFooter := 0         ; control del pie "+N atajos más"
 ; submenú nivel 1
 subGui := 0
 subEntry := 0           ; entrada de grupo a la que pertenece
@@ -576,14 +611,8 @@ EntryPreview(entry) {
 }
 
 BuildMenu() {
-    global sugGui, suggesting, rows, rowByHwnd, selIdx
-    global menuX, menuY, menuHH, menuRH, menuW
-    CloseSub()
-    if sugGui
-        sugGui.Destroy()
-    rows := [], rowByHwnd := Map()
-    selIdx := 1
-
+    global sugGui, suggesting, rows, rowByHwnd, selIdx, menuNav
+    global menuX, menuY, menuHH, menuRH, menuW, menuTW, menuFooter
     W := 620, HH := 30, RH := 36
     n := Min(entries.Length, MAX_ROWS)
     extra := entries.Length - n
@@ -599,6 +628,32 @@ BuildMenu() {
     TW := 26 + maxW
     if TW > 200
         TW := 200
+
+    ; si la geometría no cambió, reusar la ventana actualizando los
+    ; textos: evita el parpadeo de destruir/crear GUI en cada tecla
+    if sugGui && rows.Length = n && menuTW = TW && (menuFooter != 0) = (extra > 0) {
+        CloseSub()
+        selIdx := 1, menuNav := false
+        loop n {
+            entry := entries[A_Index]
+            r := rows[A_Index]
+            r.trig.Text := "  " EntryLabel(entry)
+            r.prev.Text := EntryPreview(entry)
+            StyleRow(A_Index, A_Index = selIdx)
+        }
+        if menuFooter
+            menuFooter.Text := "      sigue escribiendo… (+" extra " atajos más)"
+        if entries[1].kind = "group"
+            OpenSub(1)
+        return
+    }
+
+    CloseSub()
+    if sugGui
+        sugGui.Destroy()
+    rows := [], rowByHwnd := Map()
+    selIdx := 1, menuNav := false
+    menuTW := TW, menuFooter := 0
 
     sugGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000")
     sugGui.BackColor := CLR_BORDER
@@ -636,7 +691,7 @@ BuildMenu() {
 
     if extra > 0 {
         sugGui.SetFont("s8 c" CLR_MUTED " w400", "Segoe UI")
-        sugGui.Add("Text", "x1 y" (1 + HH + n * RH) " w" (W - 2) " h" FH " Background" CLR_SURF_ALT " +0x200",
+        menuFooter := sugGui.Add("Text", "x1 y" (1 + HH + n * RH) " w" (W - 2) " h" FH " Background" CLR_SURF_ALT " +0x200",
             "      sigue escribiendo… (+" extra " atajos más)")
     }
 
@@ -1191,8 +1246,8 @@ ShowAllFromTray(*) {
 }
 
 HideSuggestions() {
-    global suggesting, menuNav, sugGui, rows, rowByHwnd, entries
-    menuNav := false
+    global suggesting, menuNav, sugGui, rows, rowByHwnd, entries, menuFooter
+    menuNav := false, menuFooter := 0
     CloseSub()
     suggesting := false
     rows := [], rowByHwnd := Map(), entries := []

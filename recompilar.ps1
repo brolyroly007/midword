@@ -17,6 +17,12 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host 'VALIDACION OK'
 
+& $ahk /ErrorStdOut $src --selftest 2>&1 | Out-String | Write-Host
+if ($LASTEXITCODE -ne 0) {
+    Write-Host "FALLO SELFTEST (exit=$LASTEXITCODE)"
+    exit 1
+}
+
 # Compila a un temporal: si la compilacion falla, el exe actual y el
 # proceso en ejecucion quedan intactos.
 $tmp = Join-Path $PSScriptRoot 'Midword.new.exe'
