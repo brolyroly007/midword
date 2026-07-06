@@ -19,7 +19,9 @@ Escribe `//atajo` en cualquier aplicación —WhatsApp Web, Word, Telegram, tu n
 
 ---
 
-<!-- GIF demo aquí: escribir //con → menú → desglose de montos → insertar -->
+<div align="center">
+<img src="demo.gif" width="520" alt="Demo: escribir //atajo abre el menú de sugerencias y Tab inserta el texto completo">
+</div>
 
 ## ✨ Qué hace
 

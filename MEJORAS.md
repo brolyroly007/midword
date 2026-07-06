@@ -22,7 +22,8 @@ FileMove(CONFIG ".tmp", CONFIG, 1)
 ```
 Y de paso guardar un respaldo rotativo en `respaldos\` (la carpeta ya está en `.gitignore`, la intención existía).
 
-### 🔴 1.3 Edición externa + gestor abierto = duplicados o sobrescritura
+### ✅ HECHO — 🔴 1.3 Edición externa + gestor abierto = duplicados o sobrescritura
+> Corregido: nueva `mgrSelRaw` guarda el contenido original de la línea en edición; al Guardar/Eliminar se relee el archivo desde disco (`ReloadRawFromDisk`) y la línea se reubica por número o por contenido (`RelocateSelLine`) — ni duplicados ni pisado de cambios externos. `DoImport` también relee antes de agregar.
 - Si el archivo cambia por fuera mientras el gestor tiene un atajo cargado en el formulario, `CheckConfigChanged()` pone `mgrSelLine := 0`; al presionar **Guardar** el atajo se **agrega al final como duplicado** en vez de editar el original.
 - Peor: `MgrSave` escribe `rawLines` (copia en memoria). Si el usuario editó el archivo a mano entre que abrió el gestor y guardó, esos cambios externos se pisan (lost update). Mitigación: releer el archivo justo antes de guardar y aplicar solo la línea cambiada, o avisar "el archivo cambió por fuera".
 
@@ -130,7 +131,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > `recompilar.ps1` usa `$PSScriptRoot` e `instalar_inicio.bat` usa `%~dp0`; README/LEEME actualizados (ya no piden editar rutas).
 - ✅ HECHO — 🟠 **6.2 "Iniciar con Windows" desde la app**
   > Nueva opción con check en el menú de la bandeja (crea/borra `Startup\Midword.lnk` vía `FileCreateShortcut`); también se agregó `desinstalar_inicio.bat`.
-- 🟠 **6.3 CI con GitHub Actions**: workflow que en cada push valide sintaxis (`AutoHotkey64.exe /validate`) y en cada tag compile con Ahk2Exe y suba el exe al Release automáticamente. Hoy el exe se compila a mano en una sola máquina. (Ojo: el token OAuth de gh puede no tener scope `workflow`; subir el yml aparte si hace falta.)
+- ✅ HECHO — 🟠 **6.3 CI con GitHub Actions**
+  > `.github/workflows/ci.yml`: job `validar` (descarga AutoHotkey v2 y corre `/validate` en cada push/PR) y job `release` (en tags `v*` compila con Ahk2Exe y adjunta `Midword.exe` + `SHA256.txt` al Release). OJO al pushear: si el token de gh no tiene scope `workflow`, subir el yml aparte.
 - ✅ HECHO — 🟡 **6.4 `recompilar.ps1` frágil**
   > Ahora: valida que AutoHotkey y Ahk2Exe existan, compila a `Midword.new.exe` temporal, espera el archivo con timeout de 30 s (sin sleep ciego), recién entonces mata el proceso y reemplaza el exe; se eliminó el kill del proceso legado `Atajos`.
 - 🟡 **6.5 Firma de código / SmartScreen**: el exe sin firma dispara SmartScreen y falsos positivos AV (el README ya lo explica). Opciones: certificado de firma (costoso), enviar el exe a Microsoft para whitelisting, publicar hash SHA-256 + enlace VirusTotal en cada release.
@@ -142,7 +144,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 
 ## 7. Repositorio, docs y comunidad
 
-- 🟠 **7.1 GIF de demo pendiente**: el README tiene el placeholder `<!-- GIF demo aquí -->` desde v1.2.0. Es LO más importante para conversión; ya existe `midword-demo-linkedin.mp4` — convertir a GIF/WebP optimizado y subirlo (o usar un video en el README con `<video>` de GitHub).
+- ✅ HECHO — 🟠 **7.1 GIF de demo pendiente**
+  > `demo.gif` generado desde `midword-demo-linkedin.mp4` con ffmpeg (520 px, 8 fps, paleta de 96 colores, 3.3 MB) e insertado en el README donde estaba el placeholder.
 - 🟡 **7.2 Badges y metadatos**: badges de release/licencia/descargas; topics del repo (`autohotkey`, `text-expander`, `windows`, `productivity`, `spanish`); social preview con el wordmark.
 - 🟡 **7.3 CHANGELOG.md**: existen 3 releases con notas, pero no hay changelog en el repo.
 - 🟡 **7.4 README en inglés** (`README.en.md`): el nicho hispano es el foco, pero un text expander gratis MIT tiene público global; duplica el alcance con una hora de trabajo.
@@ -192,8 +195,8 @@ Hoy no hay ningún ajuste de usuario. Candidatos, todos leídos de un ini o de l
 3. ✅ Arreglar `!` en grupos de 2 niveles (1.1).
 4. ✅ Rutas relativas en `.bat`/`.ps1` + "Iniciar con Windows" desde la bandeja (6.1, 6.2).
 5. ✅ Pausar/activar desde la bandeja (3.1).
-6. 🟠 GIF de demo en el README (7.1) — costo mínimo, máximo impacto.
-7. 🟠 CI de validación + release automático (6.3).
-8. 🟠 Lost-update del gestor con ediciones externas (1.3).
+6. ✅ GIF de demo en el README (7.1) — costo mínimo, máximo impacto.
+7. ✅ CI de validación + release automático (6.3).
+8. ✅ Lost-update del gestor con ediciones externas (1.3).
 9. 🟡 Prefijo y delays configurables (5.1, 8).
 10. 🟡 Winget/Scoop + hash en releases (6.5, 6.6).

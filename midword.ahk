@@ -87,6 +87,8 @@ mgrLV := 0, mgrSearch := 0, mgrName := 0, mgrInst := 0, mgrText := 0
 mgrL1 := 0, mgrL2 := 0, mgrPrev := 0, mgrCount := 0
 mgrRows := []           ; entrada de `order` por fila visible de la lista
 mgrSelLine := 0         ; línea de atajos.txt en edición (0 = atajo nuevo)
+mgrSelRaw := ""         ; contenido original de esa línea, para reubicarla
+                        ; si el archivo cambió por fuera mientras se editaba
 impGui := 0, impEdit := 0
 ; submenú nivel 2
 sub2Gui := 0
@@ -205,14 +207,12 @@ ReloadConfig(*) {
 }
 
 CheckConfigChanged() {
-    global lastCfgTime, mgrSelLine
+    global lastCfgTime
     t := FileExist(CONFIG) ? FileGetTime(CONFIG) : ""
     if t != lastCfgTime {
         LoadShortcuts()
-        if mgrGui {        ; reflejar cambios externos en el gestor
-            mgrSelLine := 0
-            RefreshMgrList()
-        }
+        if mgrGui        ; reflejar cambios externos en el gestor; la línea
+            RefreshMgrList()   ; en edición se reubica por contenido al guardar
     }
 }
 
@@ -1127,8 +1127,9 @@ MgrItemSelect(lv, item, selected) {
 }
 
 LoadEntryToForm(entry) {
-    global mgrSelLine
+    global mgrSelLine, mgrSelRaw
     mgrSelLine := entry.line
+    mgrSelRaw := (entry.line >= 1 && entry.line <= rawLines.Length) ? rawLines[entry.line] : ""
     if entry.kind = "group" {
         mgrName.Value := entry.name
         mgrText.Value := StrReplace(entry.template, "`n", "`r`n")
@@ -1233,8 +1234,8 @@ PickFile(*) {
 }
 
 MgrNew(*) {
-    global mgrSelLine
-    mgrSelLine := 0
+    global mgrSelLine, mgrSelRaw
+    mgrSelLine := 0, mgrSelRaw := ""
     mgrName.Value := "", mgrText.Value := ""
     mgrL1.Value := "", mgrL2.Value := ""
     mgrInst.Value := 0
@@ -1242,15 +1243,15 @@ MgrNew(*) {
 }
 
 MgrDup(*) {
-    global mgrSelLine
-    mgrSelLine := 0
+    global mgrSelLine, mgrSelRaw
+    mgrSelLine := 0, mgrSelRaw := ""
     if mgrName.Value != ""
         mgrName.Value := mgrName.Value "2"
     UpdateMgrPreview()
 }
 
 MgrSave(*) {
-    global mgrSelLine, rawLines
+    global mgrSelLine, mgrSelRaw, rawLines
     name := Trim(mgrName.Value)
     if name = "" || !RegExMatch(name, "^[^\s\[\]=!:|{}]+$") {
         MsgBox("El nombre no puede estar vacío ni llevar espacios, corchetes, `=`, `!`, `:` ni `|`.`n`nEjemplos válidos: con, gracias, precio2", "Midword", "Icon!")
@@ -1279,27 +1280,57 @@ MgrSave(*) {
             return
     }
     newLine := SerializeAtajo(name, mgrInst.Value, txt, l1, l2)
-    if mgrSelLine >= 1 && mgrSelLine <= rawLines.Length
-        rawLines[mgrSelLine] := newLine
+    idx := RelocateSelLine()
+    if idx
+        rawLines[idx] := newLine
     else {
         rawLines.Push(newLine)
-        mgrSelLine := rawLines.Length
+        idx := rawLines.Length
     }
+    mgrSelLine := idx
+    mgrSelRaw := newLine
     SaveRawAndReload()
     TrayTip("Atajo " PREFIX name " guardado", "Midword")
 }
 
 MgrDelete(*) {
     global mgrSelLine, rawLines
-    if mgrSelLine < 1 || mgrSelLine > rawLines.Length {
+    idx := RelocateSelLine()
+    if !idx {
         MsgBox("Selecciona primero un atajo de la lista.", "Midword", "Icon!")
         return
     }
     if MsgBox("¿Eliminar el atajo " PREFIX Trim(mgrName.Value) " ?", "Midword", "YesNo Icon?") = "No"
         return
-    rawLines.RemoveAt(mgrSelLine)
+    rawLines.RemoveAt(idx)
     SaveRawAndReload()
     MgrNew()
+}
+
+; relee atajos.txt desde disco a rawLines (por si se editó por fuera)
+ReloadRawFromDisk() {
+    global rawLines
+    if !FileExist(CONFIG)
+        return
+    cur := StrSplit(StrReplace(FileRead(CONFIG, "UTF-8"), "`r"), "`n")
+    while cur.Length && Trim(cur[cur.Length]) = ""
+        cur.Pop()
+    rawLines := cur
+}
+
+; ubica la línea en edición tras releer el archivo: primero por número,
+; y si el archivo cambió por fuera, por su contenido original.
+; Devuelve 0 si es un atajo nuevo o la línea ya no existe.
+RelocateSelLine() {
+    ReloadRawFromDisk()
+    if mgrSelRaw = ""
+        return 0
+    if mgrSelLine >= 1 && mgrSelLine <= rawLines.Length && rawLines[mgrSelLine] = mgrSelRaw
+        return mgrSelLine
+    for i, ln in rawLines
+        if ln = mgrSelRaw
+            return i
+    return 0
 }
 
 SaveRawAndReload() {
@@ -1389,6 +1420,7 @@ DoImport(*) {
         MsgBox("No se encontró ninguna línea válida para importar.", "Midword", "Icon!")
         return
     }
+    ReloadRawFromDisk()   ; no pisar cambios externos hechos mientras tanto
     for t in toAdd
         rawLines.Push(t)
     SaveRawAndReload()

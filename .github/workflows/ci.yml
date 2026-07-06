@@ -1,0 +1,73 @@
+name: CI
+
+on:
+  push:
+    branches: [main]
+    tags: ['v*']
+  pull_request:
+
+jobs:
+  validar:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Descargar AutoHotkey v2
+        shell: pwsh
+        run: |
+          $rel = Invoke-RestMethod 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest'
+          $asset = $rel.assets | Where-Object name -match '^AutoHotkey_.*\.zip$' | Select-Object -First 1
+          Invoke-WebRequest $asset.browser_download_url -OutFile ahk.zip
+          Expand-Archive ahk.zip -DestinationPath ahk
+
+      - name: Validar sintaxis de midword.ahk
+        shell: pwsh
+        run: |
+          & .\ahk\AutoHotkey64.exe /ErrorStdOut /validate midword.ahk
+          if ($LASTEXITCODE -ne 0) { Write-Host "FALLO VALIDACION (exit=$LASTEXITCODE)"; exit 1 }
+          Write-Host 'VALIDACION OK'
+
+  release:
+    # al pushear un tag v* compila el exe y lo adjunta al Release con su hash
+    if: startsWith(github.ref, 'refs/tags/v')
+    needs: validar
+    runs-on: windows-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Descargar AutoHotkey v2 y Ahk2Exe
+        shell: pwsh
+        run: |
+          $rel = Invoke-RestMethod 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest'
+          $asset = $rel.assets | Where-Object name -match '^AutoHotkey_.*\.zip$' | Select-Object -First 1
+          Invoke-WebRequest $asset.browser_download_url -OutFile ahk.zip
+          Expand-Archive ahk.zip -DestinationPath ahk
+
+          $rel2 = Invoke-RestMethod 'https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest'
+          $asset2 = $rel2.assets | Where-Object name -match '\.zip$' | Select-Object -First 1
+          Invoke-WebRequest $asset2.browser_download_url -OutFile ahk2exe.zip
+          Expand-Archive ahk2exe.zip -DestinationPath ahk2exe
+
+      - name: Compilar Midword.exe
+        shell: pwsh
+        run: |
+          & .\ahk2exe\Ahk2Exe.exe /in midword.ahk /out Midword.exe /base .\ahk\AutoHotkey64.exe /icon midword.ico /silent verbose
+          $deadline = (Get-Date).AddSeconds(60)
+          while (-not (Test-Path Midword.exe) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+          if (-not (Test-Path Midword.exe)) { Write-Host 'FALLO COMPILACION'; exit 1 }
+
+      - name: Calcular hash SHA-256
+        shell: pwsh
+        run: |
+          $h = (Get-FileHash Midword.exe -Algorithm SHA256).Hash
+          "SHA-256 de Midword.exe:`n$h" | Out-File SHA256.txt -Encoding utf8
+          Write-Host $h
+
+      - name: Adjuntar al Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            Midword.exe
+            SHA256.txt
