@@ -34,10 +34,12 @@ Escribir `https://` deja `typedBuf` terminando en `//` con `typed = ""` → apar
 - Opción de configuración: no mostrar el menú hasta que haya ≥1 carácter después de `//`.
 - Lista negra de aplicaciones (ver 3.6).
 
-### 🟠 1.5 Fuga de memoria en `SetClipboardFiles`
+### ✅ HECHO — 🟠 1.5 Fuga de memoria en `SetClipboardFiles`
+> Corregido: `GlobalFree` si `OpenClipboard` o `SetClipboardData` fallan, y reintento ×5 (30 ms) cuando otro proceso tiene el portapapeles abierto.
 Si `OpenClipboard` o `SetClipboardData` fallan, el `hMem` de `GlobalAlloc` nunca se libera (`GlobalFree`). Fuga pequeña pero real; además no hay reintento si otro proceso tiene el portapapeles abierto (caso común con gestores de portapapeles).
 
-### 🟠 1.6 Desincronización del buffer de tecleo
+### ✅ HECHO — 🟠 1.6 Desincronización del buffer de tecleo
+> Mitigado: Ctrl+Backspace resetea el buffer (no se puede saber cuánto borró), y cualquier carácter de control recibido por el hook (Ctrl+A, Ctrl+V…) también resetea, porque el contenido del campo pudo cambiar. La edición con mouse dentro del mismo campo ya reseteaba vía clic.
 `typedBuf` solo modela tecla-a-tecla:
 - **Ctrl+Backspace** (borrar palabra) resta 1 solo carácter del buffer.
 - Seleccionar texto y escribir encima, o mover el cursor con clic dentro del mismo campo, desincroniza `eraseLen` → al expandir se borran caracteres de más o de menos.
@@ -47,10 +49,12 @@ Mitigación: resetear el buffer también con Ctrl+Backspace, Ctrl+A, y considera
 > Resuelto con `delay_pegar` y `delay_archivo` configurables en `midword.ini` (defaults 250/1200 ms). Refinamiento posible a futuro: detectar el dueño del portapapeles en vez de esperar.
 `InsertText` espera 250 ms y `InsertFile` 1200 ms antes de restaurar el portapapeles. En apps lentas (Electron pesado, RDP, WhatsApp Web con lag) el Ctrl+V se procesa DESPUÉS de restaurar → se pega el contenido viejo del portapapeles. Mejoras: delay configurable en `atajos.txt`/ini, o restaurar con un timer más largo no bloqueante, o detectar el `WM_RENDERFORMAT`/dueño del portapapeles.
 
-### 🟠 1.8 Grupos con 3+ niveles se aceptan y fallan en silencio
+### ✅ HECHO — 🟠 1.8 Grupos con 3+ niveles se aceptan y fallan en silencio
+> Ahora los niveles extra se recortan y el TrayTip de carga avisa la línea; el aviso combina también líneas sin `=` y tokens repetidos (helper `JoinNums`).
 El regex de `LoadShortcuts` acepta `nombre[a|b][1|2][x|y]=` pero el código solo usa `dims[1]` y `dims[2]`: el tercer nivel se ignora y `{3}` queda literal en el texto. Avisar en el TrayTip de líneas inválidas (hoy solo avisa por falta de `=`).
 
-### 🟠 1.9 Colisión de tokens en `AutoTok`
+### ✅ HECHO — 🟠 1.9 Colisión de tokens en `AutoTok`
+> Doble protección: al cargar, las opciones con token repetido en un nivel se omiten y se avisa la línea; en el gestor, Guardar valida los niveles y explica cómo diferenciarlas con `token: Etiqueta`.
 `"10 páginas"` y `"10 días"` generan el mismo token `10`; en un grupo, dos opciones con el mismo token producen variantes con el mismo trigger y una pisa a la otra sin aviso. Validar duplicados de token al guardar/parsear.
 
 ### 🟡 1.10 Triggers duplicados no se detectan
@@ -66,8 +70,10 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 
 ## 2. Robustez y calidad de código
 
-- 🟠 **2.1 Sin manejo global de errores**: no hay `OnError`. Un error de runtime muestra el diálogo crudo de AHK. Registrar en `midword.log` y mostrar TrayTip amable.
-- 🟠 **2.2 Monitor múltiple**: el posicionamiento usa `A_ScreenWidth/A_ScreenHeight` (solo monitor primario). En un segundo monitor el menú se recoloca mal. Usar `MonitorGetWorkArea` del monitor donde está el caret.
+- ✅ HECHO — 🟠 **2.1 Sin manejo global de errores**
+  > `OnError(LogError)`: registra fecha, mensaje y línea en `midword.log` (agregado a `.gitignore`) y muestra TrayTip amable en vez del diálogo crudo.
+- ✅ HECHO — 🟠 **2.2 Monitor múltiple**
+  > Helper `MonWork(x, y, …)` con `MonitorGetWorkArea`: el menú y los 2 submenús se posicionan dentro del monitor donde está el caret (fallback al primario).
 - 🟠 **2.3 Caret en navegadores/Electron**: `CaretGetPos` falla en Chrome/WhatsApp Web y cae al mouse. Integrar detección por UIA/MSAA (patrón `TextPattern`) para posicionar junto al cursor real.
 - 🟡 **2.4 Reconstrucción total del menú por tecla**: `BuildMenu()` destruye y recrea la GUI en cada pulsación → parpadeo y costo. Reusar la ventana actualizando textos/colores de las filas.
 - 🟡 **2.5 `HoverWatch` con polling de 80 ms**: sustituible por `OnMessage(WM_MOUSEMOVE)` en los controles; menos CPU y respuesta inmediata.
@@ -101,7 +107,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 ## 4. Gestor de atajos
 
 - 🟠 **4.1 Sin reordenar ni secciones**: el gestor siempre agrega al final; las secciones `# ── Ventas ──` del archivo no se ven ni se pueden elegir. Mostrar secciones como grupos en la lista y permitir "guardar en sección X" y mover arriba/abajo.
-- 🟠 **4.2 Aviso de conflicto instantáneo**: el PROMPT ya advierte "no marques `con!` si existe `contrato`", pero el gestor no valida. Al marcar "Instantáneo", verificar si el nombre es prefijo de otro atajo y avisar.
+- ✅ HECHO — 🟠 **4.2 Aviso de conflicto instantáneo**
+  > Al guardar un atajo instantáneo cuyo nombre es prefijo de otro atajo existente, el gestor avisa cuál chocaría y pide confirmación.
 - 🟡 **4.3 Ventana no redimensionable** (800×516 fijo) y sin `Esc` para cerrar. Con muchos atajos la lista de 270px queda corta.
 - 🟡 **4.4 Indicador de cambios sin guardar**: se puede cerrar o cambiar de selección con el formulario editado y se pierde todo sin aviso.
 - 🟡 **4.5 Duplicados al importar**: `DoImport` no compara contra los atajos existentes; importa `gracias=` aunque ya exista. Mostrar preview con conflictos (nuevo/duplicado/actualiza) antes de confirmar.

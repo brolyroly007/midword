@@ -57,6 +57,15 @@ for a in StrSplit(OptGet("apps_excluidas", ""), "|")
     if Trim(a) != ""
         APPS_EXCL.Push(StrLower(Trim(a)))
 
+; --- Errores de runtime: registrar en midword.log en vez del diálogo crudo ---
+OnError(LogError)
+LogError(err, mode) {
+    try FileAppend(FormatTime(, "yyyy-MM-dd HH:mm:ss") "  " err.Message
+        "  (" err.What ", línea " err.Line ")`n", A_ScriptDir "\midword.log", "UTF-8")
+    TrayTip("Error interno registrado en midword.log", "Midword", "Icon!")
+    return 1
+}
+
 ; --- Paleta (de colors.xml de BiPe Alerta) ---
 CLR_BG       := "F0EEE6"   ; ra_bg — crema, header
 CLR_SURFACE  := "FFFFFF"   ; ra_surface — fondo de tarjeta
@@ -261,7 +270,7 @@ LoadShortcuts() {
     global rawLines := StrSplit(StrReplace(FileRead(CONFIG, "UTF-8"), "`r"), "`n")
     while rawLines.Length && Trim(rawLines[rawLines.Length]) = ""
         rawLines.Pop()
-    badLines := []
+    badLines := [], extraDims := [], dupToks := []
     lineNo := 0
     for raw in rawLines {
         lineNo++
@@ -288,13 +297,20 @@ LoadShortcuts() {
             p2 := 1
             while RegExMatch(mv[2], "\[([^\]]+)\]", &mb, p2) {
                 d := []
+                seenTok := Map(), seenTok.CaseSense := "Off"
                 for o in StrSplit(mb[1], "|") {
                     o := Trim(o)
                     if o = ""
                         continue
                     c := InStr(o, ":")
-                    d.Push({tok: c ? Trim(SubStr(o, 1, c - 1)) : o
-                          , lab: c ? Trim(SubStr(o, c + 1)) : o})
+                    tok := c ? Trim(SubStr(o, 1, c - 1)) : o
+                    lab := c ? Trim(SubStr(o, c + 1)) : o
+                    if seenTok.Has(tok) {  ; "10 páginas"|"10 días" → mismo atajo
+                        dupToks.Push(lineNo)
+                        continue
+                    }
+                    seenTok[tok] := true
+                    d.Push({tok: tok, lab: lab})
                 }
                 if d.Length
                     dims.Push(d)
@@ -302,6 +318,11 @@ LoadShortcuts() {
             }
             if !dims.Length
                 continue
+            if dims.Length > 2 {   ; solo hay submenús para 2 niveles
+                extraDims.Push(lineNo)
+                while dims.Length > 2
+                    dims.Pop()
+            }
             base := mv[1]
             variants := []
             if dims.Length = 1 {
@@ -331,12 +352,22 @@ LoadShortcuts() {
             order.Push({kind: "item", trig: trig, line: lineNo})
         }
     }
-    if badLines.Length {
-        s := ""
-        for bn in badLines
-            s .= (s ? ", " : "") bn
-        TrayTip("Línea(s) ignoradas en atajos.txt (les falta el '='): " s, "Midword — revisa el archivo", "Icon!")
-    }
+    msg := ""
+    if badLines.Length
+        msg .= "Sin '=' (ignoradas): " JoinNums(badLines)
+    if extraDims.Length
+        msg .= (msg ? "`n" : "") "Más de 2 niveles [..] (se usan los 2 primeros): " JoinNums(extraDims)
+    if dupToks.Length
+        msg .= (msg ? "`n" : "") "Opciones con token repetido (se omiten): " JoinNums(dupToks)
+    if msg
+        TrayTip("Líneas: " msg, "Midword — revisa atajos.txt", "Icon!")
+}
+
+JoinNums(arr) {
+    s := ""
+    for n in arr
+        s .= (s ? ", " : "") n
+    return s
 }
 
 ; ==================== Detección de escritura ====================
@@ -355,6 +386,10 @@ AppExcluded() {
 
 HandleChar(hook, char) {
     global typedBuf
+    if Ord(char) < 32 {    ; caracteres de control (Ctrl+A, Ctrl+V…): el
+        ResetState()       ; contenido del campo pudo cambiar; resetear
+        return
+    }
     typedBuf .= char
     if StrLen(typedBuf) > 80
         typedBuf := SubStr(typedBuf, -80)
@@ -364,6 +399,10 @@ HandleChar(hook, char) {
 HandleKeyDown(hook, vk, sc) {
     global typedBuf
     if vk = 0x08 {  ; Backspace
+        if GetKeyState("Ctrl", "P") {  ; Ctrl+Backspace borra una palabra:
+            ResetState()               ; imposible saber cuánto; resetear
+            return
+        }
         if typedBuf != ""
             typedBuf := SubStr(typedBuf, 1, -1)
         UpdateSuggestions()
@@ -543,11 +582,12 @@ BuildMenu() {
         MouseGetPos(&x, &y)
     }
     y += 24
-    if x > A_ScreenWidth - (W + 380)
-        x := A_ScreenWidth - (W + 380)   ; deja sitio a los submenús
-    if x < 0
-        x := 0
-    if y > A_ScreenHeight - (H + 60)
+    MonWork(x, y, &mL, &mT, &mR, &mB)
+    if x > mR - (W + 380)
+        x := mR - (W + 380)   ; deja sitio a los submenús
+    if x < mL
+        x := mL
+    if y > mB - (H + 60)
         y -= H + 50
     menuX := x, menuY := y, menuHH := HH, menuRH := RH, menuW := W
     sugGui.Show("x" x " y" y " w" W " h" H " NoActivate")
@@ -557,6 +597,18 @@ BuildMenu() {
     ; si la primera fila es un grupo, mostrar su desglose de una vez
     if entries[1].kind = "group"
         OpenSub(1)
+}
+
+; área de trabajo del monitor que contiene el punto x,y (multi-monitor)
+MonWork(x, y, &L, &T, &R, &B) {
+    L := 0, T := 0, R := A_ScreenWidth, B := A_ScreenHeight
+    try loop MonitorGetCount() {
+        MonitorGetWorkArea(A_Index, &l, &t, &r, &b)
+        if x >= l && x < r && y >= t && y < b {
+            L := l, T := t, R := r, B := b
+            return
+        }
+    }
 }
 
 ; ==================== Submenú nivel 1 ====================
@@ -612,10 +664,11 @@ OpenSub(i) {
 
     x := menuX + menuW - 6
     y := menuY + menuHH + (i - 1) * RH
-    if x + W2 > A_ScreenWidth
+    MonWork(menuX, menuY, &mL, &mT, &mR, &mB)
+    if x + W2 > mR
         x := menuX - W2 + 6
-    if y + H2 > A_ScreenHeight - 50
-        y := A_ScreenHeight - 50 - H2
+    if y + H2 > mB - 50
+        y := mB - 50 - H2
     subX := x, subY := y, subW := W2
     subGui.Show("x" x " y" y " w" W2 " h" H2 " NoActivate")
     WinSetRegion("0-0 w" W2 " h" H2 " R12-12", subGui)
@@ -691,10 +744,11 @@ OpenSub2(j) {
 
     x := subX + subW - 6
     y := subY + (j - 1) * RH
-    if x + W3 > A_ScreenWidth
+    MonWork(subX, subY, &mL, &mT, &mR, &mB)
+    if x + W3 > mR
         x := subX - W3 + 6
-    if y + H3 > A_ScreenHeight - 50
-        y := A_ScreenHeight - 50 - H3
+    if y + H3 > mB - 50
+        y := mB - 50 - H3
     sub2Gui.Show("x" x " y" y " w" W3 " h" H3 " NoActivate")
     WinSetRegion("0-0 w" W3 " h" H3 " R12-12", sub2Gui)
 }
@@ -930,11 +984,24 @@ SetClipboardFiles(path) {
     NumPut("int", 1, p, 16)                ; fWide = TRUE (UTF-16)
     StrPut(path, p + 20, "UTF-16")
     DllCall("GlobalUnlock", "ptr", hMem)
-    if !DllCall("OpenClipboard", "ptr", A_ScriptHwnd)
+    ; reintentar: otro proceso (gestores de portapapeles) puede tenerlo abierto
+    opened := false
+    loop 5 {
+        if DllCall("OpenClipboard", "ptr", A_ScriptHwnd) {
+            opened := true
+            break
+        }
+        Sleep 30
+    }
+    if !opened {
+        DllCall("GlobalFree", "ptr", hMem)
         return false
+    }
     DllCall("EmptyClipboard")
     ok := DllCall("SetClipboardData", "uint", 15, "ptr", hMem, "ptr")  ; CF_HDROP
     DllCall("CloseClipboard")
+    if !ok   ; si falló, el sistema no tomó posesión de la memoria
+        DllCall("GlobalFree", "ptr", hMem)
     return !!ok
 }
 
@@ -1315,6 +1382,29 @@ MgrSave(*) {
     if l2.Length && !l1.Length {
         MsgBox("Hay opciones en el nivel 2 pero el nivel 1 está vacío.`nLlena primero el nivel 1.", "Midword", "Icon!")
         return
+    }
+    ; tokens duplicados en un nivel (ej. '10 páginas' y '10 días' → '10')
+    for lvl in [l1, l2] {
+        seen := Map(), seen.CaseSense := "Off"
+        for o in lvl {
+            if seen.Has(o.tok) {
+                MsgBox("Dos opciones de un mismo nivel generan el token '" o.tok "' y se pisarían entre sí.`nDiferéncialas escribiéndolas como  token: Etiqueta  (una por línea).", "Midword", "Icon!")
+                return
+            }
+            seen[o.tok] := true
+        }
+    }
+    ; un instantáneo que es prefijo de otro atajo se dispara antes de
+    ; poder terminar de escribir el otro
+    if mgrInst.Value {
+        conf := ""
+        for trig in shortcuts
+            if trig != name && InStr(trig, name) = 1 {
+                conf := trig
+                break
+            }
+        if conf != "" && MsgBox("El atajo " PREFIX name " es instantáneo y además es el inicio de " PREFIX conf ": se insertará solo antes de que puedas escribir el otro.`n`n¿Guardar de todos modos?", "Midword", "YesNo Icon?") = "No"
+            return
     }
     if l1.Length && !InStr(txt, "{1}") {
         if MsgBox("El texto no contiene {1}, así que la opción elegida del nivel 1 no aparecerá en él.`n`n¿Guardar de todos modos?", "Midword", "YesNo Icon?") = "No"
