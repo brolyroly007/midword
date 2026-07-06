@@ -57,13 +57,16 @@ El regex de `LoadShortcuts` acepta `nombre[a|b][1|2][x|y]=` pero el código solo
 > Doble protección: al cargar, las opciones con token repetido en un nivel se omiten y se avisa la línea; en el gestor, Guardar valida los niveles y explica cómo diferenciarlas con `token: Etiqueta`.
 `"10 páginas"` y `"10 días"` generan el mismo token `10`; en un grupo, dos opciones con el mismo token producen variantes con el mismo trigger y una pisa a la otra sin aviso. Validar duplicados de token al guardar/parsear.
 
-### 🟡 1.10 Triggers duplicados no se detectan
+### ✅ HECHO — 🟡 1.10 Triggers duplicados no se detectan
+> Triple cobertura: al cargar se avisan las líneas con atajos repetidos (gana el último, como antes); el gestor pide confirmación si el nombre ya lo usa otra línea; la importación omite duplicados (contra existentes y dentro del mismo bloque) y lo reporta.
 Dos líneas `con=...` conviven: el `Map` se queda con la última pero `order` muestra ambas en el menú (la primera inserta el texto de la segunda). Ni `MgrSave` ni `DoImport` avisan de duplicados contra los existentes.
 
-### 🟡 1.11 `{cursor}` y `{Left n}` cuentan unidades UTF-16
+### ✅ HECHO — 🟡 1.11 `{cursor}` y `{Left n}` cuentan unidades UTF-16
+> El retroceso del cursor ahora usa `BSLen()` (code points): un emoji después de `{cursor}` cuenta como UNA flecha.
 `back := StrLen(txt) - cp - ...` cuenta code units: si después de `{cursor}` hay emojis (pares sustitutos), el cursor queda corrido. Contar con `StrPut`/parse por grafemas o documentar la limitación.
 
-### 🟡 1.12 Tab/Enter/Esc secuestrados mientras el menú está visible
+### ✅ HECHO — 🟡 1.12 Tab/Enter/Esc secuestrados mientras el menú está visible
+> Tab/Enter solo se capturan si hay intención clara: algo escrito tras el prefijo (`curTyped != ""`) o navegación previa con flechas/mouse (`menuNav`). Un menú abierto por un simple `//` ya no roba el Tab/Enter de la app. Esc y las flechas siguen activos siempre que el menú esté visible.
 Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la aplicación. Si el menú apareció sin querer (caso URL del 1.4), el Tab del usuario "desaparece". Considerar: si `typed = ""` (aún no filtró nada), dejar pasar Tab/Enter y solo capturarlos cuando haya intención clara.
 
 ---
@@ -77,8 +80,10 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 - ✅ HECHO — 🟠 **2.3 Caret en navegadores/Electron**
   > Nuevo fallback `AccCaretPos()`: MSAA `OBJID_CARET` vía `AccessibleObjectFromWindow` + `accLocation` (ComCall) con validación de tamaño para descartar rectángulos que no son caret. Cadena: `CaretGetPos` → MSAA → mouse. Refinamiento futuro posible: UIA `TextPattern2.GetCaretRange`.
 - 🟡 **2.4 Reconstrucción total del menú por tecla**: `BuildMenu()` destruye y recrea la GUI en cada pulsación → parpadeo y costo. Reusar la ventana actualizando textos/colores de las filas.
-- 🟡 **2.5 `HoverWatch` con polling de 80 ms**: sustituible por `OnMessage(WM_MOUSEMOVE)` en los controles; menos CPU y respuesta inmediata.
-- 🟡 **2.6 Ancho de texto estimado con `StrLen * 9`**: falla con fuentes/DPI distintos. Medir texto real (`Gui.AddText` + `GuiControlGet Pos`, o `DrawText` con `DT_CALCRECT`).
+- ✅ HECHO — 🟡 **2.5 `HoverWatch` con polling de 80 ms**
+  > Reemplazado por `OnMessage(0x200)`: el WM_MOUSEMOVE llega directo al control bajo el cursor y se busca su hwnd en los mapas de filas — cero polling, respuesta inmediata.
+- ✅ HECHO — 🟡 **2.6 Ancho de texto estimado con `StrLen * 9`**
+  > Nueva `TextWidth()` con `GetTextExtentPoint32` (fuente real, corregido por DPI); la usan el menú principal y ambos submenús.
 - 🟡 **2.7 Estado global disperso**: ~40 variables globales. Sin romper el "un solo archivo", agrupar en clases (`class SuggestMenu`, `class SubMenu`, `class Manager`, `class Config`) mejora mantenibilidad y evita bugs de `global` olvidados.
 - 🟡 **2.8 Sin pruebas**: extraer el parser (`LoadShortcuts`/`ParseLevel`/`SerializeAtajo`/`AutoTok`) a funciones puras y escribir un `tests.ahk` que corra asserts en CI (roundtrip parse→serialize→parse).
 - 🔵 **2.9 IME / teclados con teclas muertas**: InputHook + tildes con teclas muertas funciona en layout latinoamericano, pero con IME (chino/japonés) no captura. Documentar como limitación conocida.
@@ -115,7 +120,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > Al guardar un atajo instantáneo cuyo nombre es prefijo de otro atajo existente, el gestor avisa cuál chocaría y pide confirmación.
 - 🟡 **4.3 Ventana no redimensionable** (800×516 fijo) y sin `Esc` para cerrar. Con muchos atajos la lista de 270px queda corta.
 - 🟡 **4.4 Indicador de cambios sin guardar**: se puede cerrar o cambiar de selección con el formulario editado y se pierde todo sin aviso.
-- 🟡 **4.5 Duplicados al importar**: `DoImport` no compara contra los atajos existentes; importa `gracias=` aunque ya exista. Mostrar preview con conflictos (nuevo/duplicado/actualiza) antes de confirmar.
+- ✅ HECHO — 🟡 **4.5 Duplicados al importar**
+  > `DoImport` compara contra los atajos existentes y dentro del propio bloque pegado: los duplicados se omiten y el resumen final lista esas líneas.
 - 🟡 **4.6 Botón Exportar**: para llevar atajos a otra PC (copia el archivo o las líneas seleccionadas al portapapeles). El caso "copiado de otra PC" ya se menciona en el código, pero solo existe la mitad (importar).
 - 🔵 **4.7 Probar atajo desde el gestor**: botón "Probar" que expande en un Edit de prueba, con variables resueltas.
 - 🔵 **4.8 Multi-selección para eliminar** varios de una vez.

@@ -107,6 +107,7 @@ lastIns := ""           ; texto de la última expansión (para deshacer)
 lastTypedTxt := ""      ; lo que el usuario había escrito (//atajo)
 lastInsTick := 0        ; momento de la última expansión
 suggesting := false
+menuNav := false        ; el usuario ya navegó el menú (flechas/mouse)
 entries := []           ; entradas mostradas en el menú principal
 sugGui := 0
 rows := []
@@ -201,6 +202,7 @@ ih.KeyOpt("{All}", "N")
 ih.OnChar := HandleChar
 ih.OnKeyDown := HandleKeyDown
 ih.Start()
+OnMessage(0x200, OnMouseMove)   ; hover del menú sin timer de polling
 
 ; hotkeys opcionales del ini:  hotkey_pausa=^!m   hotkey_gestor=^!g
 try {
@@ -222,10 +224,14 @@ SetTimer(CheckConfigChanged, 3000)
 Right::GoRight()
 #HotIf suggesting && (subActive || sub2Active)
 Left::GoLeft()
-#HotIf suggesting
+; Tab/Enter solo se capturan con intención clara (algo escrito tras el
+; prefijo, o navegación previa): un menú abierto por un simple "//" no
+; roba el Tab/Enter que la aplicación necesitaba
+#HotIf suggesting && (curTyped != "" || menuNav)
 Tab::AcceptKey()
 Enter::AcceptKey()
 NumpadEnter::AcceptKey()
+#HotIf suggesting
 Esc::ResetState()
 Down::NavKey(1)
 Up::NavKey(-1)
@@ -284,7 +290,7 @@ LoadShortcuts() {
         rawLines.Pop()
     global sections := []
     curSec := ""
-    badLines := [], extraDims := [], dupToks := []
+    badLines := [], extraDims := [], dupToks := [], dupNames := []
     lineNo := 0
     for raw in rawLines {
         lineNo++
@@ -344,9 +350,11 @@ LoadShortcuts() {
             }
             base := mv[1]
             variants := []
+            hadDup := false
             if dims.Length = 1 {
                 for o in dims[1] {
                     vTrig := base o.tok
+                    hadDup := hadDup || shortcuts.Has(vTrig)
                     shortcuts[vTrig] := StrReplace(txt, "{1}", o.lab)
                     if isInstant
                         instant[vTrig] := true
@@ -356,6 +364,7 @@ LoadShortcuts() {
                 for o1 in dims[1] {
                     for o2 in dims[2] {
                         vTrig := base o1.tok o2.tok
+                        hadDup := hadDup || shortcuts.Has(vTrig)
                         shortcuts[vTrig] := StrReplace(StrReplace(txt, "{1}", o1.lab), "{2}", o2.lab)
                         if isInstant
                             instant[vTrig] := true
@@ -363,8 +372,12 @@ LoadShortcuts() {
                     }
                 }
             }
+            if hadDup
+                dupNames.Push(lineNo)
             order.Push({kind: "group", name: base, dims: dims, variants: variants, template: txt, line: lineNo, sec: curSec})
         } else {
+            if shortcuts.Has(trig)
+                dupNames.Push(lineNo)
             shortcuts[trig] := txt
             if isInstant
                 instant[trig] := true
@@ -378,6 +391,8 @@ LoadShortcuts() {
         msg .= (msg ? "`n" : "") "Más de 2 niveles [..] (se usan los 2 primeros): " JoinNums(extraDims)
     if dupToks.Length
         msg .= (msg ? "`n" : "") "Opciones con token repetido (se omiten): " JoinNums(dupToks)
+    if dupNames.Length
+        msg .= (msg ? "`n" : "") "Atajos repetidos (gana el último): " JoinNums(dupNames)
     if msg
         TrayTip("Líneas: " msg, "Midword — revisa atajos.txt", "Icon!")
 }
@@ -519,6 +534,25 @@ EntryLabel(entry) {
     return entry.kind = "group" ? PREFIX entry.name "  ▸" : PREFIX entry.trig
 }
 
+; ancho real del texto en píxeles lógicos de la GUI (GetTextExtentPoint32
+; con la fuente indicada, corregido por DPI) — reemplaza el estimado *9
+TextWidth(s, fontName := "Consolas", size := 10, weight := 700) {
+    hdc := DllCall("GetDC", "ptr", 0, "ptr")
+    hpx := -DllCall("MulDiv", "int", size
+        , "int", DllCall("GetDeviceCaps", "ptr", hdc, "int", 90), "int", 72)
+    hFont := DllCall("CreateFont", "int", hpx, "int", 0, "int", 0, "int", 0
+        , "int", weight, "uint", 0, "uint", 0, "uint", 0, "uint", 1
+        , "uint", 0, "uint", 0, "uint", 0, "uint", 0, "str", fontName, "ptr")
+    old := DllCall("SelectObject", "ptr", hdc, "ptr", hFont, "ptr")
+    sz := Buffer(8, 0)
+    DllCall("GetTextExtentPoint32", "ptr", hdc, "str", s, "int", StrLen(s), "ptr", sz)
+    w := NumGet(sz, 0, "int")
+    DllCall("SelectObject", "ptr", hdc, "ptr", old)
+    DllCall("DeleteObject", "ptr", hFont)
+    DllCall("ReleaseDC", "ptr", 0, "ptr", hdc)
+    return Round(w * 96 / A_ScreenDPI)
+}
+
 DimRange(d) {
     return d.Length > 1 ? d[1].lab "–" d[d.Length].lab : d[1].lab
 }
@@ -556,13 +590,13 @@ BuildMenu() {
     FH := extra > 0 ? 24 : 0
     H := 1 + HH + n * RH + FH + 1
 
-    maxLen := 0
+    maxW := 0
     loop n {
-        L := StrLen(EntryLabel(entries[A_Index]))
-        if L > maxLen
-            maxLen := L
+        L := TextWidth(EntryLabel(entries[A_Index]))
+        if L > maxW
+            maxW := L
     }
-    TW := 26 + maxLen * 9
+    TW := 26 + maxW
     if TW > 200
         TW := 200
 
@@ -625,7 +659,6 @@ BuildMenu() {
     sugGui.Show("x" x " y" y " w" W " h" H " NoActivate")
     WinSetRegion("0-0 w" W " h" H " R14-14", sugGui)
     suggesting := true
-    SetTimer(HoverWatch, 80)
     ; si la primera fila es un grupo, mostrar su desglose de una vez
     if entries[1].kind = "group"
         OpenSub(1)
@@ -701,9 +734,9 @@ OpenSub(i) {
 
     maxLab := 0
     for o in d1
-        if StrLen(o.lab) > maxLab
-            maxLab := StrLen(o.lab)
-    LW := 30 + maxLab * 9
+        if TextWidth(o.lab) > maxLab
+            maxLab := TextWidth(o.lab)
+    LW := 30 + maxLab
     W2 := LW + (hasL2 ? 40 : 130)
     if W2 < 150
         W2 := 150
@@ -791,9 +824,9 @@ OpenSub2(j) {
     n := d2.Length, RH := menuRH
     maxLab := 0
     for o in d2
-        if StrLen(o.lab) > maxLab
-            maxLab := StrLen(o.lab)
-    W3 := 60 + maxLab * 9
+        if TextWidth(o.lab) > maxLab
+            maxLab := TextWidth(o.lab)
+    W3 := 60 + maxLab
     if W3 < 130
         W3 := 130
     H3 := 1 + n * RH + 1
@@ -886,7 +919,7 @@ CanGoRight() {
 }
 
 GoRight() {
-    global subActive, sub2Active
+    global subActive, sub2Active, menuNav := true
     if !subActive {
         if !subGui
             OpenSub(selIdx)
@@ -916,6 +949,7 @@ GoLeft() {
 }
 
 NavKey(d) {
+    global menuNav := true
     if sub2Active {
         k := sub2Sel + d
         if k < 1
@@ -944,23 +978,22 @@ NavKey(d) {
     SetSel(i)
 }
 
-; sigue el mouse: pasar sobre una fila la selecciona y desglosa grupos
-HoverWatch() {
-    global subActive, sub2Active
-    if !suggesting {
-        SetTimer(HoverWatch, 0)
+; sigue el mouse sin polling: WM_MOUSEMOVE llega al control bajo el
+; cursor; pasar sobre una fila la selecciona y desglosa grupos
+OnMouseMove(wParam, lParam, msg, hwnd) {
+    global subActive, sub2Active, menuNav
+    if !suggesting
         return
-    }
-    MouseGetPos , , &mwin, &mctrl, 2
-    if sugGui && mwin = sugGui.Hwnd && rowByHwnd.Has(mctrl) {
-        SetSel(rowByHwnd[mctrl])
+    if rowByHwnd.Has(hwnd) {
+        menuNav := true
+        SetSel(rowByHwnd[hwnd])
         if subActive || sub2Active {
             subActive := false, sub2Active := false
             SetSubSel(0)
         }
-    } else if subGui && mwin = subGui.Hwnd && subByHwnd.Has(mctrl) {
-        j := subByHwnd[mctrl]
-        subActive := true
+    } else if subByHwnd.Has(hwnd) {
+        j := subByHwnd[hwnd]
+        subActive := true, menuNav := true
         if j != subSel {
             SetSubSel(j)
             if SubHasL2()
@@ -968,9 +1001,9 @@ HoverWatch() {
             else
                 CloseSub2()
         }
-    } else if sub2Gui && mwin = sub2Gui.Hwnd && sub2ByHwnd.Has(mctrl) {
-        sub2Active := true
-        SetSub2Sel(sub2ByHwnd[mctrl])
+    } else if sub2ByHwnd.Has(hwnd) {
+        sub2Active := true, menuNav := true
+        SetSub2Sel(sub2ByHwnd[hwnd])
     }
 }
 
@@ -1117,7 +1150,8 @@ InsertText(txt) {
     back := 0
     cp := InStr(txt, "{cursor}")
     if cp {
-        back := StrLen(txt) - cp - StrLen("{cursor}") + 1
+        ; contar por code points: un emoji tras {cursor} = UNA flecha
+        back := BSLen(SubStr(txt, cp + StrLen("{cursor}")))
         txt := StrReplace(txt, "{cursor}", "")
     }
     saved := ClipboardAll()
@@ -1157,8 +1191,8 @@ ShowAllFromTray(*) {
 }
 
 HideSuggestions() {
-    global suggesting, sugGui, rows, rowByHwnd, entries
-    SetTimer(HoverWatch, 0)
+    global suggesting, menuNav, sugGui, rows, rowByHwnd, entries
+    menuNav := false
     CloseSub()
     suggesting := false
     rows := [], rowByHwnd := Map(), entries := []
@@ -1520,6 +1554,25 @@ MgrSave(*) {
     }
     newLine := SerializeAtajo(name, mgrInst.Value, txt, l1, l2)
     idx := RelocateSelLine()
+    ; ¿el nombre ya lo usa otra línea del archivo?
+    for i, ln in rawLines {
+        if i = idx
+            continue
+        t := Trim(ln)
+        if t = "" || SubStr(t, 1, 1) = "#"
+            continue
+        p := InStr(t, "=")
+        if !p
+            continue
+        left := Trim(RegExReplace(Trim(SubStr(t, 1, p - 1)), "\[[^\]]*\]"))
+        if SubStr(left, -1) = "!"
+            left := Trim(SubStr(left, 1, -1))
+        if left = name {
+            if MsgBox("Ya existe un atajo llamado " PREFIX name " (línea " i ") y solo uno de los dos funcionará.`n`n¿Guardar de todos modos?", "Midword", "YesNo Icon?") = "No"
+                return
+            break
+        }
+    }
     if idx
         rawLines[idx] := newLine
     else {
@@ -1677,9 +1730,12 @@ MgrImport(*) {
 
 DoImport(*) {
     global rawLines
-    ok := 0, bad := []
+    ok := 0, bad := [], dup := []
     toAdd := []
     nLn := 0
+    seen := Map(), seen.CaseSense := "Off"   ; nombres ya existentes
+    for e in order
+        seen[e.kind = "group" ? e.name : e.trig] := true
     for ln in StrSplit(impEdit.Value, "`n", "`r") {
         nLn++
         t := Trim(ln)
@@ -1698,11 +1754,16 @@ DoImport(*) {
             bad.Push(nLn)
             continue
         }
+        if seen.Has(nameOnly) {   ; ya existe o vino repetido en el bloque
+            dup.Push(nLn)
+            continue
+        }
+        seen[nameOnly] := true
         toAdd.Push(t)
         ok++
     }
     if !ok {
-        MsgBox("No se encontró ninguna línea válida para importar.", "Midword", "Icon!")
+        MsgBox("No se encontró ninguna línea nueva para importar" (dup.Length ? " (todas ya existían)." : "."), "Midword", "Icon!")
         return
     }
     ReloadRawFromDisk()   ; no pisar cambios externos hechos mientras tanto
@@ -1710,12 +1771,10 @@ DoImport(*) {
         rawLines.Push(t)
     SaveRawAndReload()
     msg := "Se importaron " ok " atajo(s)."
-    if bad.Length {
-        s := ""
-        for bn in bad
-            s .= (s ? ", " : "") bn
-        msg .= "`nLíneas omitidas por formato inválido: " s
-    }
+    if bad.Length
+        msg .= "`nLíneas omitidas por formato inválido: " JoinNums(bad)
+    if dup.Length
+        msg .= "`nLíneas omitidas por nombre duplicado: " JoinNums(dup)
     impGui.Hide()
     MsgBox(msg, "Midword", "Iconi")
 }
