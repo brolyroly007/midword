@@ -236,8 +236,33 @@ A_TrayMenu.Add("Pausar (no sugerir)", TogglePause)
 A_TrayMenu.Add("Iniciar con Windows", ToggleStartup)
 if FileExist(STARTUP_LNK)
     A_TrayMenu.Check("Iniciar con Windows")
+A_TrayMenu.Add("Buscar actualización", CheckUpdate)
 A_TrayMenu.Add()
 A_TrayMenu.Add("Salir", (*) => ExitApp())
+
+; consulta la última versión publicada en GitHub (solo al pedirlo)
+CheckUpdate(*) {
+    try {
+        req := ComObject("WinHttp.WinHttpRequest.5.1")
+        req.Open("GET", "https://api.github.com/repos/brolyroly007/midword/releases/latest", true)
+        req.SetRequestHeader("User-Agent", "Midword")
+        req.Send()
+        req.WaitForResponse(10)
+        if RegExMatch(req.ResponseText, '"tag_name"\s*:\s*"v?([^"]+)"', &mv) {
+            latest := mv[1]
+            if VerCompare(latest, VERSION) > 0 {
+                if MsgBox("Hay una versión nueva: v" latest " (tienes v" VERSION ").`n`n¿Abrir la página de descarga?", "Midword", "YesNo Iconi") = "Yes"
+                    Run("https://github.com/brolyroly007/midword/releases/latest")
+            } else {
+                MsgBox("Estás en la última versión (v" VERSION ").", "Midword", "Iconi")
+            }
+        } else {
+            MsgBox("No se pudo leer la respuesta de GitHub.", "Midword", "Icon!")
+        }
+    } catch as e {
+        MsgBox("No se pudo comprobar (¿sin internet?): " e.Message, "Midword", "Icon!")
+    }
+}
 A_TrayMenu.Default := "Gestionar atajos…"
 TrayTip("Escribe " PREFIX "atajo en cualquier aplicación", "Midword activo")
 
@@ -372,7 +397,7 @@ LoadShortcuts() {
     shortcuts := Map(), shortcuts.CaseSense := "Off"
     instant := Map(), instant.CaseSense := "Off"
     order := []
-    global rawLines := StrSplit(StrReplace(FileRead(CONFIG, "UTF-8"), "`r"), "`n")
+    global rawLines := StrSplit(StrReplace(ReadConfigText(), "`r"), "`n")
     while rawLines.Length && Trim(rawLines[rawLines.Length]) = ""
         rawLines.Pop()
     global sections := []
@@ -1405,6 +1430,52 @@ SetClipboardFiles(paths) {                 ; paths: Array de rutas
     return !!ok
 }
 
+; Pone HTML ("HTML Format") + texto plano en el portapapeles, para
+; que Word/Gmail/Docs peguen con formato y el resto pegue el plano
+SetClipboardHTML(html, plain) {
+    static cfHtml := DllCall("RegisterClipboardFormat", "str", "HTML Format", "uint")
+    mk(sh, eh, sf, ef) => "Version:0.9`r`nStartHTML:" Format("{:010}", sh)
+        . "`r`nEndHTML:" Format("{:010}", eh) "`r`nStartFragment:" Format("{:010}", sf)
+        . "`r`nEndFragment:" Format("{:010}", ef) "`r`n"
+    pre := "<html><body><!--StartFragment-->"
+    post := "<!--EndFragment--></body></html>"
+    hdrLen := StrPut(mk(0, 0, 0, 0), "UTF-8") - 1
+    startFrag := hdrLen + StrPut(pre, "UTF-8") - 1
+    endFrag := startFrag + StrPut(html, "UTF-8") - 1
+    endHtml := endFrag + StrPut(post, "UTF-8") - 1
+    data := mk(hdrLen, endHtml, startFrag, endFrag) pre html post
+    n := StrPut(data, "UTF-8") - 1
+    hMem := DllCall("GlobalAlloc", "uint", 0x42, "uptr", n + 1, "ptr")
+    p := DllCall("GlobalLock", "ptr", hMem, "ptr")
+    StrPut(data, p, n + 1, "UTF-8")
+    DllCall("GlobalUnlock", "ptr", hMem)
+    hTxt := DllCall("GlobalAlloc", "uint", 0x42, "uptr", (StrLen(plain) + 1) * 2, "ptr")
+    p2 := DllCall("GlobalLock", "ptr", hTxt, "ptr")
+    StrPut(plain, p2, "UTF-16")
+    DllCall("GlobalUnlock", "ptr", hTxt)
+    opened := false
+    loop 5 {
+        if DllCall("OpenClipboard", "ptr", A_ScriptHwnd) {
+            opened := true
+            break
+        }
+        Sleep 30
+    }
+    if !opened {
+        DllCall("GlobalFree", "ptr", hMem), DllCall("GlobalFree", "ptr", hTxt)
+        return false
+    }
+    DllCall("EmptyClipboard")
+    ok1 := DllCall("SetClipboardData", "uint", cfHtml, "ptr", hMem, "ptr")
+    ok2 := DllCall("SetClipboardData", "uint", 13, "ptr", hTxt, "ptr")   ; CF_UNICODETEXT
+    DllCall("CloseClipboard")
+    if !ok1
+        DllCall("GlobalFree", "ptr", hMem)
+    if !ok2
+        DllCall("GlobalFree", "ptr", hTxt)
+    return !!(ok1 && ok2)
+}
+
 ; Inserta un atajo de archivo (imagen, video, PDF…); admite varios
 ; separados por |:  pack=archivo:C:\a.png|C:\b.pdf
 InsertFile(pathSpec) {
@@ -1435,14 +1506,10 @@ InsertFile(pathSpec) {
 ; Inserta pegando desde el portapapeles: instantáneo, soporta
 ; textos largos y los saltos de línea NO envían el mensaje en
 ; WhatsApp/Telegram. Restaura lo que tenías copiado.
-; Devuelve el texto realmente pegado ("" si no se pudo pegar, fue un
-; archivo o usó {cursor}): lo usa el deshacer con Backspace.
-InsertText(txt) {
-    ; atajos de archivo:  miatajo=archivo:C:\ruta\imagen.png
-    if SubStr(txt, 1, 8) = "archivo:" {
-        InsertFile(Trim(SubStr(txt, 9)))
-        return ""
-    }
+; Resuelve las variables ({fecha…}, {$var}, {portapapeles}, {input:…})
+; sobre &txt. Deja \{ convertida en Chr(2): el llamador la restaura.
+; Devuelve false si el usuario canceló un {input}.
+ResolveVars(&txt) {
     txt := StrReplace(txt, "\{", Chr(2))   ; \{ = llave literal, sin reemplazo
     txt := StrReplace(txt, "{fecha_larga}", FormatTime(, "d 'de' MMMM 'de' yyyy"))
     ; {fecha+7} / {fecha-2} → fecha desplazada N días (plazos de entrega)
@@ -1461,18 +1528,45 @@ InsertText(txt) {
     while RegExMatch(txt, "\{input:([^}]*)\}", &mi) {
         ib := InputBox(mi[1], "Midword", "w340 h130")
         if ib.Result != "OK"
-            return ""
+            return false
         txt := StrReplace(txt, mi[0], ib.Value)
         hadInput := true
     }
     if hadInput
         Sleep 200   ; dar tiempo a que el foco vuelva a la app
+    return true
+}
+
+; Devuelve el texto realmente pegado ("" si no se pudo pegar, fue un
+; archivo o usó {cursor}): lo usa el deshacer con Backspace.
+InsertText(txt) {
+    ; atajos de archivo:  miatajo=archivo:C:\ruta\imagen.png
+    if SubStr(txt, 1, 8) = "archivo:" {
+        InsertFile(Trim(SubStr(txt, 9)))
+        return ""
+    }
+    if !ResolveVars(&txt)
+        return ""
     txt := StrReplace(txt, Chr(2), "{")
     ; teclear: escribe tecla por tecla (para apps que bloquean Ctrl+V)
     if SubStr(txt, 1, 8) = "teclear:" {
         t := StrReplace(SubStr(txt, 9), "{cursor}", "")
         SendText(t)
         return t
+    }
+    ; html: pega con formato (negritas, listas) en Word/Gmail/Docs
+    if SubStr(txt, 1, 5) = "html:" {
+        html := SubStr(txt, 6)
+        plain := RegExReplace(RegExReplace(html, "i)<br\s*/?>", "`n"), "<[^>]+>")
+        saved := ClipboardAll()
+        if !SetClipboardHTML(html, plain) {
+            A_Clipboard := saved
+            return ""
+        }
+        Send("^v")
+        Sleep DELAY_PEGAR
+        A_Clipboard := saved
+        return ""   ; sin deshacer: el largo pegado depende de la app
     }
     back := 0
     cp := InStr(txt, "{cursor}")
@@ -1603,7 +1697,7 @@ OpenManager(*) {
     mgrGui.SetFont("s10 w400 c" CLR_TEXT, "Segoe UI")
     mgrSearch := mgrGui.Add("Edit", "x30 y138 w294 Background" CLR_SURF_ALT)
     mgrSearch.OnEvent("Change", (*) => RefreshMgrList())
-    mgrLV := mgrGui.Add("ListView", "x30 y172 w294 h270 -Multi -E0x200 Background" CLR_SURFACE, ["Atajo", "Texto"])
+    mgrLV := mgrGui.Add("ListView", "x30 y172 w294 h270 -E0x200 Background" CLR_SURFACE, ["Atajo", "Texto"])
     mgrLV.OnEvent("ItemSelect", MgrItemSelect)
     mgrLV.ModifyCol(1, 92), mgrLV.ModifyCol(2, 178)
 
@@ -1646,6 +1740,7 @@ OpenManager(*) {
 
     mgrGui.SetFont("s8 w700 c" CLR_ACCENT, "Segoe UI")
     mgrGui.Add("Text", "x" X2 " y398 w200 Background" CLR_SURFACE, "VISTA PREVIA")
+    Pill(mgrGui, X2 + 328, 392, 76, 20, "▶ Probar", CLR_ACC_LITE, CLR_ACC_DARK, MgrTest, "s8 w600")
     mgrGui.SetFont("s9 w400 c" CLR_BODY, "Segoe UI")
     mgrPrev := mgrGui.Add("Text", "x" X2 " y414 w398 h38 Background" CLR_ACC_LITE, "")
     RoundCtrl(mgrPrev, 398, 38, 12)
@@ -1991,6 +2086,29 @@ MgrSave(*) {
 
 MgrDelete(*) {
     global mgrSelLine, rawLines
+    ; selección múltiple de la lista (Ctrl/Shift+clic)
+    sel := [], row := 0
+    while row := mgrLV.GetNext(row) {
+        e := mgrRows[row]
+        if e.kind != "sec" && e.line >= 1 && e.line <= rawLines.Length
+            sel.Push(rawLines[e.line])
+    }
+    if sel.Length > 1 {
+        if MsgBox("¿Eliminar " sel.Length " atajos seleccionados?", "Midword", "YesNo Icon?") = "No"
+            return
+        ReloadRawFromDisk()
+        for content in sel {
+            for i, ln in rawLines {
+                if ln = content {
+                    rawLines.RemoveAt(i)
+                    break
+                }
+            }
+        }
+        SaveRawAndReload()
+        MgrNew()
+        return
+    }
     idx := RelocateSelLine()
     if !idx {
         MsgBox("Selecciona primero un atajo de la lista.", "Midword", "Icon!")
@@ -2001,6 +2119,31 @@ MgrDelete(*) {
     rawLines.RemoveAt(idx)
     SaveRawAndReload()
     MgrNew()
+}
+
+; muestra cómo quedará el atajo del formulario, con variables resueltas
+MgrTest(*) {
+    txt := StrReplace(mgrText.Value, "`r`n", "`n")
+    if Trim(txt) = "" {
+        MsgBox("Escribe primero el texto del atajo.", "Midword", "Icon!")
+        return
+    }
+    if SubStr(txt, 1, 8) = "archivo:" {
+        MsgBox("Este atajo adjunta archivo(s): pruébalo escribiéndolo en cualquier aplicación.", "Midword", "Iconi")
+        return
+    }
+    l1 := ParseLevel(mgrL1.Value), l2 := ParseLevel(mgrL2.Value)
+    if l1.Length
+        txt := StrReplace(txt, "{1}", l1[1].lab)
+    if l2.Length
+        txt := StrReplace(txt, "{2}", l2[1].lab)
+    if !ResolveVars(&txt)
+        return
+    txt := StrReplace(txt, Chr(2), "{")
+    txt := StrReplace(txt, "{cursor}", "‸")
+    if SubStr(txt, 1, 8) = "teclear:"
+        txt := SubStr(txt, 9)
+    MsgBox("Así se insertará (‸ = posición del cursor):`n`n" txt, "Midword — Probar", "Iconi")
 }
 
 ; línea donde insertar un atajo nuevo para que quede al final de la
@@ -2043,12 +2186,21 @@ MgrMove(d, *) {
     SaveRawAndReload()
 }
 
+; lee atajos.txt tolerando la codificación: UTF-8 (con o sin BOM) y,
+; si aparecen bytes inválidos (guardado como ANSI), reintenta en CP0
+ReadConfigText() {
+    raw := FileRead(CONFIG, "UTF-8")
+    if InStr(raw, Chr(0xFFFD))
+        try raw := FileRead(CONFIG, "CP0")
+    return raw
+}
+
 ; relee atajos.txt desde disco a rawLines (por si se editó por fuera)
 ReloadRawFromDisk() {
     global rawLines
     if !FileExist(CONFIG)
         return
-    cur := StrSplit(StrReplace(FileRead(CONFIG, "UTF-8"), "`r"), "`n")
+    cur := StrSplit(StrReplace(ReadConfigText(), "`r"), "`n")
     while cur.Length && Trim(cur[cur.Length]) = ""
         cur.Pop()
     rawLines := cur

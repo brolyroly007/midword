@@ -139,8 +139,10 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > `DoImport` compara contra los atajos existentes y dentro del propio bloque pegado: los duplicados se omiten y el resumen final lista esas líneas.
 - ✅ HECHO — 🟡 **4.6 Botón Exportar**
   > Pill "Exportar" en la botonera (se compactó la fila para que quepan 7): guarda una copia de `atajos.txt` donde elijas; en la otra PC se usa Importar.
-- 🔵 **4.7 Probar atajo desde el gestor**: botón "Probar" que expande en un Edit de prueba, con variables resueltas.
-- 🔵 **4.8 Multi-selección para eliminar** varios de una vez.
+- ✅ HECHO — 🔵 **4.7 Probar atajo desde el gestor**
+  > Pill "▶ Probar" junto a VISTA PREVIA: muestra el texto final con variables resueltas (`ResolveVars` extraída de `InsertText` y compartida), `‸` marca el `{cursor}`, y los `{input:…}` preguntan de verdad.
+- ✅ HECHO — 🔵 **4.8 Multi-selección para eliminar**
+  > La lista permite Ctrl/Shift+clic; Eliminar con 2+ seleccionados pide una sola confirmación y borra por contenido (a prueba de cambios externos).
 - ✅ HECHO — 🔵 **4.9 Atajo global para abrir el gestor**
   > `hotkey_gestor=^!g` en `midword.ini` (opcional, sin default para no chocar con otras apps).
 - ✅ HECHO — 🔵 **4.10 Inconsistencia docs**
@@ -160,9 +162,12 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > `archivo:ruta1|ruta2` adjunta varios de un golpe: `SetClipboardFiles` arma la lista CF_HDROP completa, el botón 📎 del gestor permite selección múltiple y las vistas previas muestran "(+N)". Avisa qué rutas faltan y adjunta las que sí existen.
 - ✅ HECHO — 🟡 **5.5 Validación al cargar**
   > Los triggers con espacios (imposibles de escribir) se reportan en el TrayTip de carga junto con las demás advertencias.
-- 🔵 **5.6 BOM/codificación**: si el usuario guarda el archivo como ANSI desde un editor viejo, las tildes se rompen. Escribir con BOM UTF-8 (`UTF-8-RAW` vs `UTF-8` en AHK) y detectar/convertir al leer.
-- 🔵 **5.7 Grupos de 3+ niveles** (hoy silenciosamente rotos, ver 1.8): o soportarlos de verdad generalizando `OpenSub` (recursivo), o rechazarlos con aviso.
-- 🔵 **5.8 Texto con formato (rich text)**: colocar HTML/RTF en el portapapeles además de texto plano, para que en Word/Gmail se pegue con negritas. Complejo pero factible (formatos `CF_HTML`/`Rich Text Format`).
+- ✅ HECHO — 🔵 **5.6 BOM/codificación**
+  > `ReadConfigText()`: lee UTF-8 (con/sin BOM) y si detecta bytes inválidos (`�`) reintenta como ANSI (CP0). La escritura ya salía con BOM UTF-8.
+- ✅ HECHO — 🔵 **5.7 Grupos de 3+ niveles**
+  > Resuelto en 1.8 con la opción "rechazar con aviso": se recortan a 2 niveles y el TrayTip indica la línea.
+- ✅ HECHO — 🔵 **5.8 Texto con formato (rich text)**
+  > Sintaxis `html:` → `SetClipboardHTML()` pone "HTML Format" (offsets UTF-8 correctos) + texto plano: Word/Gmail/Docs pegan con negritas y las apps de texto plano reciben el fallback. Documentado en LEEME.
 - ✅ HECHO — 🔵 **5.9 Modo tecleo por app**
   > Sintaxis `atajo=teclear:texto`: se escribe con `SendText` en vez de pegar (con variables resueltas; `{cursor}` no aplica). Documentado en LEEME.
 
@@ -182,8 +187,10 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > La parte automatizable ya está: el CI publica `SHA256.txt` con cada release. El certificado de firma y el whitelisting de Microsoft requieren cuenta/pago externos — decisión del dueño del proyecto.
 - ⏭️ OMITIDO — 🟡 **6.6 Winget / Scoop / Chocolatey**
   > Requiere submission a repositorios externos (microsoft/winget-pkgs, bucket de Scoop) con revisión humana; fuera del alcance del loop local.
-- 🔵 **6.7 Buscador de actualizaciones**: opción de bandeja "Buscar actualización" que consulte `api.github.com/repos/brolyroly007/midword/releases/latest` y avise si hay versión nueva.
-- 🔵 **6.8 Instalador opcional** (Inno Setup): para el público no técnico que no sabe "descargar un exe y crear acceso directo". Mantener el zip portable como opción A.
+- ✅ HECHO — 🔵 **6.7 Buscador de actualizaciones**
+  > Opción de bandeja "Buscar actualización": consulta el API de releases (WinHttp, solo bajo demanda), compara con `VERSION` y ofrece abrir la página de descarga.
+- ✅ HECHO — 🔵 **6.8 Instalador opcional**
+  > `installer/midword.iss` listo para Inno Setup 6 (español, tarea opcional de inicio con Windows, LEEME como readme). Compilarlo requiere tener Inno instalado; el zip portable sigue siendo la opción A.
 
 ---
 

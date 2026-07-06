@@ -73,6 +73,11 @@ VARIABLES DENTRO DEL TEXTO
                       (ej. $yape=999 999 999 y úsala en varios atajos)
     \t  \\n  \{ ..... tabulador, "\n" literal, llave sin reemplazo
 
+MODOS ESPECIALES (prefijo al inicio del texto)
+    archivo:ruta ..... pega/adjunta el archivo (varios con |)
+    teclear:texto .... escribe tecla por tecla (apps que bloquean Ctrl+V)
+    html:<b>Hola</b> . pega con formato (negritas, listas) en Word/Gmail
+
 Ejemplos:
     con=para confirmar y empezar es necesario el adelanto de una parte
     precio=El costo es S/ {cursor} e incluye revisiones.
