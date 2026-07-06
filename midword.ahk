@@ -27,6 +27,13 @@ SendMode "Input"
 CONFIG := A_ScriptDir "\atajos.txt"
 PREFIX := "//"
 
+; --- Opciones (midword.ini es opcional; si no existe se usan los defaults) ---
+;   [opciones]
+;   min_caracteres=1   → no mostrar el menú hasta escribir N letras después de //
+INI := A_ScriptDir "\midword.ini"
+MIN_CHARS := 0
+try MIN_CHARS := Integer(IniRead(INI, "opciones", "min_caracteres", "0"))
+
 ; --- Paleta (de colors.xml de BiPe Alerta) ---
 CLR_BG       := "F0EEE6"   ; ra_bg — crema, header
 CLR_SURFACE  := "FFFFFF"   ; ra_surface — fondo de tarjeta
@@ -237,6 +244,8 @@ LoadShortcuts() {
                     for o2 in dims[2] {
                         vTrig := base o1.tok o2.tok
                         shortcuts[vTrig] := StrReplace(StrReplace(txt, "{1}", o1.lab), "{2}", o2.lab)
+                        if isInstant
+                            instant[vTrig] := true
                         variants.Push(vTrig)
                     }
                 }
@@ -288,6 +297,12 @@ UpdateSuggestions() {
         HideSuggestions()
         return
     }
+    ; el prefijo debe estar al inicio o tras un separador: evita que
+    ; escribir URLs (https://) o rutas (C://) abra el menú
+    if p > 1 && RegExMatch(SubStr(typedBuf, p - 1, 1), "[\w:./\\-]") {
+        HideSuggestions()
+        return
+    }
     typed := SubStr(typedBuf, p + StrLen(PREFIX))
     if typed != "" && RegExMatch(typed, "\s") {
         HideSuggestions()
@@ -298,6 +313,11 @@ UpdateSuggestions() {
         curTyped := typed
         eraseLen := StrLen(PREFIX) + StrLen(typed)
         ExpandTrig(typed)
+        return
+    }
+    ; opción min_caracteres: no abrir el menú hasta tener N letras tras //
+    if StrLen(typed) < MIN_CHARS {
+        HideSuggestions()
         return
     }
     ; primero coincidencias de prefijo (los grupos aparecen como UNA
@@ -1240,11 +1260,35 @@ SaveRawAndReload() {
     s := ""
     for ln in rawLines
         s .= ln "`r`n"
-    if FileExist(CONFIG)
-        FileDelete(CONFIG)
-    FileAppend(s, CONFIG, "UTF-8")
+    BackupConfig()
+    ; escritura atómica: primero a un temporal y luego rename;
+    ; si algo falla a medias, atajos.txt queda intacto
+    tmp := CONFIG ".tmp"
+    if FileExist(tmp)
+        FileDelete(tmp)
+    FileAppend(s, tmp, "UTF-8")
+    FileMove(tmp, CONFIG, 1)
     LoadShortcuts()
     RefreshMgrList()
+}
+
+; copia atajos.txt a respaldos\ antes de cada guardado; conserva los 10 últimos
+BackupConfig() {
+    if !FileExist(CONFIG)
+        return
+    try {
+        bakDir := A_ScriptDir "\respaldos"
+        DirCreate(bakDir)
+        FileCopy(CONFIG, bakDir "\atajos-" A_Now ".txt", 1)
+        baks := []
+        loop files bakDir "\atajos-*.txt"
+            baks.Push(A_LoopFileFullPath)
+        ; el timestamp en el nombre hace que el orden alfabético sea cronológico
+        while baks.Length > 10 {
+            FileDelete(baks[1])
+            baks.RemoveAt(1)
+        }
+    }
 }
 
 ; --- importar un bloque generado por IA (o copiado de otra PC) ---
