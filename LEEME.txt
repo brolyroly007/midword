@@ -52,6 +52,7 @@ Las líneas que empiezan con # son comentarios.
 ATAJOS DE ARCHIVO (imágenes, videos, PDF…)
     logo=archivo:D:\negocio\logo.png
     catalogo=archivo:D:\negocio\catalogo.pdf
+    pack=archivo:D:\a.png|D:\b.pdf        ← varios a la vez, separados por |
 Al usarlo, el archivo se pega donde estés: WhatsApp Web y Telegram lo
 ADJUNTAN (imagen, video o PDF listo para enviar), Word inserta la imagen,
 Gmail la adjunta. En el gestor usa el botón "📎 archivo…" y la ruta se
@@ -65,6 +66,12 @@ VARIABLES DENTRO DEL TEXTO
     {dia} ........... día de la semana    → lunes
     {cursor} ........ el cursor queda en ese punto al insertar
                       (ideal para completar nombres o montos a mano)
+    {fecha+7} ....... fecha dentro de 7 días → plazos ({fecha-2} también vale)
+    {portapapeles} .. lo que tengas copiado se inserta en ese punto
+    {input:Pregunta}  te pregunta al expandir e inserta tu respuesta
+    {$var} .......... variable propia: defínela en una línea  $var=valor
+                      (ej. $yape=999 999 999 y úsala en varios atajos)
+    \t  \\n  \{ ..... tabulador, "\n" literal, llave sin reemplazo
 
 Ejemplos:
     con=para confirmar y empezar es necesario el adelanto de una parte

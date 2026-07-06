@@ -20,8 +20,12 @@ GRAMÁTICA (EBNF):
   opcion      = token [ ":" etiqueta ] ;            (* token: corto, sin espacios, va al nombre;
                                                        etiqueta: texto visible y que se inserta *)
   contenido   = { caracter | escape | variable } ;
-  escape      = "\n" ;                              (* salto de línea *)
-  variable    = "{fecha}" | "{hora}" | "{dia}" | "{fecha_larga}" | "{cursor}" | "{1}" | "{2}" ;
+  escape      = "\n" | "\t" | "\\n" | "\{" ;        (* salto de línea, tab,
+                                                       "\n" literal, "{" literal *)
+  variable    = "{fecha}" | "{hora}" | "{dia}" | "{fecha_larga}" | "{cursor}"
+              | "{1}" | "{2}" | "{fecha+N}" | "{fecha-N}"
+              | "{portapapeles}" | "{input:pregunta}" | "{$nombre}" ;
+  uservar     = "$" nombre "=" texto-libre ;        (* línea que define {$nombre} *)
 
 SEMÁNTICA:
 
@@ -38,9 +42,17 @@ SEMÁNTICA:
   - {cursor}      → al insertar, el cursor queda en esa posición
                     (para completar un dato a mano, como un nombre)
   - \n            → salto de línea (seguro en WhatsApp, no envía el mensaje)
+  - {fecha+N} / {fecha-N} → fecha desplazada N días (plazos: "te lo
+    entrego el {fecha+7}")
+  - {portapapeles} → lo que el usuario tenga copiado se inserta ahí
+  - {input:Pregunta} → al expandir aparece un cuadro con esa pregunta
+    y la respuesta se inserta en ese punto
+  - {$nombre} → variable de usuario; se define en una línea aparte:
+    $yape=999 999 999   y luego se usa: pago=Yapea al {$yape}
   - archivo:<ruta absoluta> → en vez de texto, el atajo PEGA ese archivo
     (imagen/video/PDF): WhatsApp lo adjunta, Word inserta la imagen.
     Ej: catalogo=archivo:D:\negocio\catalogo.pdf
+    Varios a la vez separados por |:  pack=archivo:D:\a.png|D:\b.pdf
   - GRUPOS DESGLOSABLES: nombre[5|10|15]=texto con {1} soles
     Al escribir //nombre aparece UNA fila que al pasar el mouse (o con
     la flecha →) se desglosa en un submenú con las opciones; {1} se

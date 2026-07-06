@@ -147,10 +147,14 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 
 - ✅ HECHO — 🟠 **5.1 Prefijo configurable**
   > `prefijo=;;` en `midword.ini` (default `//`). El menú, la expansión, el borrado y la etiqueta del gestor usan `PREFIX` en todos lados.
-- 🟡 **5.2 Más variables**: `{portapapeles}` (inserta lo copiado dentro de la plantilla), `{fecha+7}` / `{fecha-1}` (aritmética de fechas para plazos de entrega — muy útil para RedactorIA), `{input:Nombre del cliente}` (mini-prompt al expandir), `{mayus:...}`, variables definidas por el usuario (`$yape=999...` reutilizable en varios atajos).
-- 🟡 **5.3 Escapes incompletos**: solo existe `\n`. No hay forma de insertar un `\n` literal, ni `\t`, ni `{1}` literal en un texto de grupo. Definir `\\n`, `\t`, `\{`.
-- 🟡 **5.4 `archivo:` múltiple**: `CF_HDROP` soporta lista de archivos; permitir `archivo:ruta1|ruta2` para adjuntar varios de un golpe (catálogo + lista de precios).
-- 🟡 **5.5 Validación al cargar**: triggers con espacios internos o caracteres imposibles de tipear pasan el parser pero jamás matchearán (el menú los oculta al escribir por el check `\s`). Avisarlos junto con las líneas sin `=`.
+- ✅ HECHO — 🟡 **5.2 Más variables**
+  > `{fecha+N}`/`{fecha-N}` (plazos), `{portapapeles}`, `{input:Pregunta}` (mini-diálogo; cancelar aborta la inserción) y `{$var}` con definición `$var=valor` en el archivo. Documentado en LEEME, PROMPT_PARA_IA y atajos.ejemplo. `{mayus:}` quedó fuera por bajo valor.
+- ✅ HECHO — 🟡 **5.3 Escapes incompletos**
+  > `\\n` (texto "\n" literal), `\t` (tabulador) y `\{` (llave sin reemplazo de variables). `SerializeAtajo` hace el roundtrip inverso (con tests en el selftest).
+- ✅ HECHO — 🟡 **5.4 `archivo:` múltiple**
+  > `archivo:ruta1|ruta2` adjunta varios de un golpe: `SetClipboardFiles` arma la lista CF_HDROP completa, el botón 📎 del gestor permite selección múltiple y las vistas previas muestran "(+N)". Avisa qué rutas faltan y adjunta las que sí existen.
+- ✅ HECHO — 🟡 **5.5 Validación al cargar**
+  > Los triggers con espacios (imposibles de escribir) se reportan en el TrayTip de carga junto con las demás advertencias.
 - 🔵 **5.6 BOM/codificación**: si el usuario guarda el archivo como ANSI desde un editor viejo, las tildes se rompen. Escribir con BOM UTF-8 (`UTF-8-RAW` vs `UTF-8` en AHK) y detectar/convertir al leer.
 - 🔵 **5.7 Grupos de 3+ niveles** (hoy silenciosamente rotos, ver 1.8): o soportarlos de verdad generalizando `OpenSub` (recursivo), o rechazarlos con aviso.
 - 🔵 **5.8 Texto con formato (rich text)**: colocar HTML/RTF en el portapapeles además de texto plano, para que en Word/Gmail se pegue con negritas. Complejo pero factible (formatos `CF_HTML`/`Rich Text Format`).

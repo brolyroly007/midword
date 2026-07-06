@@ -110,7 +110,9 @@ RunSelfTest() {
     T("Fuzzy encuentra", FuzzyMatch("grc", "gracias") = true)
     T("Fuzzy rechaza", FuzzyMatch("xyz", "gracias") = false)
     T("Fuzzy corto no aplica", FuzzyMatch("g", "gracias") = false)
-    FileAppend(fails ? out : "SELFTEST OK (16 pruebas)`n", "*", "UTF-8")
+    T("Serialize escapa \n literal", SerializeAtajo("x", 0, "a\nb", [], []) = "x=a\\nb")
+    T("Serialize escapa tab", SerializeAtajo("x", 0, "a" A_Tab "b", [], []) = "x=a\tb")
+    FileAppend(fails ? out : "SELFTEST OK (18 pruebas)`n", "*", "UTF-8")
     return fails
 }
 
@@ -165,6 +167,7 @@ order := []             ; entradas en orden del archivo:
                         ;   ("name" y no "base": base es palabra reservada)
 lastCfgTime := ""
 sections := []          ; secciones "# ── Nombre ──" del archivo: {name, line}
+userVars := Map()       ; variables de usuario:  $yape=999…  → {$yape}
 
 ; --- Estado del menú ---
 typedBuf := ""          ; últimas teclas escritas por el usuario
@@ -360,8 +363,10 @@ LoadShortcuts() {
     while rawLines.Length && Trim(rawLines[rawLines.Length]) = ""
         rawLines.Pop()
     global sections := []
+    global userVars := Map()
+    userVars.CaseSense := "Off"
     curSec := ""
-    badLines := [], extraDims := [], dupToks := [], dupNames := []
+    badLines := [], extraDims := [], dupToks := [], dupNames := [], wsTrigs := []
     lineNo := 0
     for raw in rawLines {
         lineNo++
@@ -378,8 +383,20 @@ LoadShortcuts() {
             badLines.Push(lineNo)
             continue
         }
+        ; variables de usuario:  $yape=999 999 999  → en textos como {$yape}
+        if SubStr(line, 1, 1) = "$" {
+            vName := Trim(SubStr(line, 2, pos - 2))
+            if vName != ""
+                userVars[vName] := StrReplace(SubStr(line, pos + 1), "\n", "`n")
+            continue
+        }
         trig := Trim(SubStr(line, 1, pos - 1))
-        txt := StrReplace(SubStr(line, pos + 1), "\n", "`n")
+        ; escapes: \\n → "\n" literal, \t → tabulador, \n → salto de línea
+        txt := SubStr(line, pos + 1)
+        txt := StrReplace(txt, "\\n", Chr(1))
+        txt := StrReplace(txt, "\n", "`n")
+        txt := StrReplace(txt, "\t", A_Tab)
+        txt := StrReplace(txt, Chr(1), "\n")
         isInstant := false
         if SubStr(trig, -1) = "!" {
             isInstant := true
@@ -445,10 +462,18 @@ LoadShortcuts() {
             }
             if hadDup
                 dupNames.Push(lineNo)
+            for v in variants {
+                if RegExMatch(v, "\s") {   ; imposible de tipear
+                    wsTrigs.Push(lineNo)
+                    break
+                }
+            }
             order.Push({kind: "group", name: base, dims: dims, variants: variants, template: txt, line: lineNo, sec: curSec})
         } else {
             if shortcuts.Has(trig)
                 dupNames.Push(lineNo)
+            if RegExMatch(trig, "\s")
+                wsTrigs.Push(lineNo)
             shortcuts[trig] := txt
             if isInstant
                 instant[trig] := true
@@ -464,6 +489,8 @@ LoadShortcuts() {
         msg .= (msg ? "`n" : "") "Opciones con token repetido (se omiten): " JoinNums(dupToks)
     if dupNames.Length
         msg .= (msg ? "`n" : "") "Atajos repetidos (gana el último): " JoinNums(dupNames)
+    if wsTrigs.Length
+        msg .= (msg ? "`n" : "") "Atajos con espacios (no se pueden escribir): " JoinNums(wsTrigs)
     if msg
         TrayTip("Líneas: " msg, "Midword — revisa atajos.txt", "Icon!")
 }
@@ -695,8 +722,9 @@ EntryPreview(entry) {
         txt := shortcuts[entry.trig]
     }
     if SubStr(txt, 1, 8) = "archivo:" {
-        SplitPath(Trim(SubStr(txt, 9)), &fname)
-        return "📎 " fname
+        parts := StrSplit(Trim(SubStr(txt, 9)), "|")
+        SplitPath(Trim(parts[1]), &fname)
+        return "📎 " fname (parts.Length > 1 ? "  (+" (parts.Length - 1) ")" : "")
     }
     txt := StrReplace(txt, "`n", "  ")
     if StrLen(txt) > 56
@@ -1241,17 +1269,23 @@ BSLen(s) {
     return StrLen(RegExReplace(s, "s).", "·"))
 }
 
-; Pone un archivo en el portapapeles como CF_HDROP (igual que Ctrl+C
-; sobre el archivo en el Explorador): WhatsApp/Telegram lo adjuntan,
-; Word/Docs insertan la imagen, Gmail lo adjunta.
-SetClipboardFiles(path) {
-    chars := StrLen(path) + 2              ; ruta + NUL + NUL final
+; Pone uno o varios archivos en el portapapeles como CF_HDROP (igual
+; que Ctrl+C sobre archivos en el Explorador): WhatsApp/Telegram los
+; adjuntan, Word/Docs insertan la imagen, Gmail los adjunta.
+SetClipboardFiles(paths) {                 ; paths: Array de rutas
+    chars := 1                             ; NUL final de la lista
+    for f in paths
+        chars += StrLen(f) + 1             ; cada ruta + su NUL
     bytes := 20 + chars * 2                ; DROPFILES (20) + lista UTF-16
     hMem := DllCall("GlobalAlloc", "uint", 0x42, "uptr", bytes, "ptr")
     p := DllCall("GlobalLock", "ptr", hMem, "ptr")
     NumPut("uint", 20, p, 0)               ; pFiles = sizeof(DROPFILES)
     NumPut("int", 1, p, 16)                ; fWide = TRUE (UTF-16)
-    StrPut(path, p + 20, "UTF-16")
+    off := 20
+    for f in paths {
+        StrPut(f, p + off, "UTF-16")
+        off += (StrLen(f) + 1) * 2
+    }                                      ; el doble NUL final ya es 0 (ZEROINIT)
     DllCall("GlobalUnlock", "ptr", hMem)
     ; reintentar: otro proceso (gestores de portapapeles) puede tenerlo abierto
     opened := false
@@ -1274,14 +1308,25 @@ SetClipboardFiles(path) {
     return !!ok
 }
 
-; Inserta un atajo de archivo (imagen, video, PDF…)
-InsertFile(path) {
-    if !FileExist(path) {
-        TrayTip("No se encontró el archivo:`n" path, "Midword", "Icon!")
-        return
+; Inserta un atajo de archivo (imagen, video, PDF…); admite varios
+; separados por |:  pack=archivo:C:\a.png|C:\b.pdf
+InsertFile(pathSpec) {
+    paths := [], missing := ""
+    for f in StrSplit(pathSpec, "|") {
+        f := Trim(f)
+        if f = ""
+            continue
+        if FileExist(f)
+            paths.Push(f)
+        else
+            missing .= (missing ? "`n" : "") f
     }
+    if missing != ""
+        TrayTip("No se encontró:`n" missing, "Midword", "Icon!")
+    if !paths.Length
+        return
     saved := ClipboardAll()
-    if !SetClipboardFiles(path) {
+    if !SetClipboardFiles(paths) {
         A_Clipboard := saved
         return
     }
@@ -1301,10 +1346,31 @@ InsertText(txt) {
         InsertFile(Trim(SubStr(txt, 9)))
         return ""
     }
+    txt := StrReplace(txt, "\{", Chr(2))   ; \{ = llave literal, sin reemplazo
     txt := StrReplace(txt, "{fecha_larga}", FormatTime(, "d 'de' MMMM 'de' yyyy"))
+    ; {fecha+7} / {fecha-2} → fecha desplazada N días (plazos de entrega)
+    while RegExMatch(txt, "\{fecha([+-]\d+)\}", &mf)
+        txt := StrReplace(txt, mf[0], FormatTime(DateAdd(A_Now, Integer(mf[1]), "Days"), "dd/MM/yyyy"))
     txt := StrReplace(txt, "{fecha}", FormatTime(, "dd/MM/yyyy"))
     txt := StrReplace(txt, "{hora}", FormatTime(, "HH:mm"))
     txt := StrReplace(txt, "{dia}", FormatTime(, "dddd"))
+    ; {$var} → variables de usuario definidas como  $var=valor
+    while RegExMatch(txt, "\{\$([^}]+)\}", &mu)
+        txt := StrReplace(txt, mu[0], userVars.Get(Trim(mu[1]), ""))
+    ; {portapapeles} → lo que tengas copiado (antes de tocar el clipboard)
+    txt := StrReplace(txt, "{portapapeles}", A_Clipboard)
+    ; {input:Pregunta} → mini-diálogo al expandir; cancelar aborta
+    hadInput := false
+    while RegExMatch(txt, "\{input:([^}]*)\}", &mi) {
+        ib := InputBox(mi[1], "Midword", "w340 h130")
+        if ib.Result != "OK"
+            return ""
+        txt := StrReplace(txt, mi[0], ib.Value)
+        hadInput := true
+    }
+    if hadInput
+        Sleep 200   ; dar tiempo a que el foco vuelva a la app
+    txt := StrReplace(txt, Chr(2), "{")
     back := 0
     cp := InStr(txt, "{cursor}")
     if cp {
@@ -1662,6 +1728,8 @@ SerializeAtajo(name, isInstant, txt, l1, l2) {
     }
     if isInstant
         t .= "!"
+    txt := StrReplace(txt, "\n", "\\n")   ; "\n" literal escrito por el usuario
+    txt := StrReplace(txt, A_Tab, "\t")
     return t "=" StrReplace(txt, "`n", "\n")
 }
 
@@ -1681,8 +1749,9 @@ UpdateMgrPreview() {
         }
     }
     if SubStr(txt, 1, 8) = "archivo:" {
-        SplitPath(Trim(SubStr(txt, 9)), &pfn)
-        txt := "📎 " pfn " (se adjunta el archivo)"
+        pparts := StrSplit(Trim(SubStr(txt, 9)), "|")
+        SplitPath(Trim(pparts[1]), &pfn)
+        txt := "📎 " pfn (pparts.Length > 1 ? " (+" (pparts.Length - 1) " más)" : "") " (se adjunta)"
     }
     txt := StrReplace(txt, "`n", "  ")
     if StrLen(txt) > 110
@@ -1690,12 +1759,15 @@ UpdateMgrPreview() {
     mgrPrev.Text := " " head "`n " txt
 }
 
-; atajo de archivo desde el gestor: elige el archivo y arma la sintaxis solo
+; atajo de archivo desde el gestor: elige archivo(s) y arma la sintaxis solo
 PickFile(*) {
-    f := FileSelect(3, , "Elige el archivo que insertará el atajo (imagen, video, PDF…)")
-    if f = ""
+    fs := FileSelect("M3", , "Elige el/los archivos que insertará el atajo (imagen, video, PDF…)")
+    if !IsObject(fs) || !fs.Length
         return
-    mgrText.Value := "archivo:" f
+    s := ""
+    for f in fs
+        s .= (s ? "|" : "") f
+    mgrText.Value := "archivo:" s
     UpdateMgrPreview()
 }
 
@@ -1729,8 +1801,12 @@ MgrSave(*) {
         MsgBox("Escribe el texto que se va a insertar.", "Midword", "Icon!")
         return
     }
-    if SubStr(txt, 1, 8) = "archivo:" && !FileExist(Trim(SubStr(txt, 9))) {
-        if MsgBox("La ruta del archivo no existe en este momento.`n`n¿Guardar de todos modos?", "Midword", "YesNo Icon?") = "No"
+    if SubStr(txt, 1, 8) = "archivo:" {
+        falta := false
+        for f in StrSplit(Trim(SubStr(txt, 9)), "|")
+            if Trim(f) != "" && !FileExist(Trim(f))
+                falta := true
+        if falta && MsgBox("Alguna ruta de archivo no existe en este momento.`n`n¿Guardar de todos modos?", "Midword", "YesNo Icon?") = "No"
             return
     }
     l1 := ParseLevel(mgrL1.Value), l2 := ParseLevel(mgrL2.Value)

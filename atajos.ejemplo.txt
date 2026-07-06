@@ -9,9 +9,12 @@
 # Variables: {fecha} {hora} {dia} {fecha_larga} {cursor} — \n = salto de línea
 
 # ── Ventas ──
-con[5|10|15|20|30|50]=para confirmar y empezar es necesario el adelanto de una parte. En su caso bastaría con {1} soles.\n\nEl pago es de preferencia mediante YAPE, al número: 999 999 999 - Tu Nombre
-yape=El pago es de preferencia mediante YAPE, al número: 999 999 999 - Tu Nombre
+# variable propia: cámbiala una vez y se actualiza en todos los atajos
+$yape=999 999 999 - Tu Nombre
+con[5|10|15|20|30|50]=para confirmar y empezar es necesario el adelanto de una parte. En su caso bastaría con {1} soles.\n\nEl pago es de preferencia mediante YAPE, al número: {$yape}
+yape=El pago es de preferencia mediante YAPE, al número: {$yape}
 precio=El costo del trabajo es S/ {cursor} e incluye revisiones.
+entrega=Tu trabajo estará listo el {fecha+7} como máximo.
 
 # ── Cortesía ──
 saludo=Hola, buen día 😊\n¿En qué puedo ayudarte?
