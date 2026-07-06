@@ -24,6 +24,12 @@
 Persistent
 SendMode "Input"
 
+VERSION := "1.3.0"
+;@Ahk2Exe-SetName Midword
+;@Ahk2Exe-SetDescription Midword — expansor de texto con autocompletado
+;@Ahk2Exe-SetVersion 1.3.0
+;@Ahk2Exe-SetCopyright MIT — github.com/brolyroly007/midword
+
 CONFIG := A_ScriptDir "\atajos.txt"
 
 ; --- Opciones (midword.ini es opcional; si no existe se usan los defaults) ---
@@ -96,6 +102,9 @@ lastCfgTime := ""
 typedBuf := ""          ; últimas teclas escritas por el usuario
 curTyped := ""          ; lo escrito después de //
 eraseLen := 0           ; caracteres a borrar al insertar
+lastIns := ""           ; texto de la última expansión (para deshacer)
+lastTypedTxt := ""      ; lo que el usuario había escrito (//atajo)
+lastInsTick := 0        ; momento de la última expansión
 suggesting := false
 entries := []           ; entradas mostradas en el menú principal
 sugGui := 0
@@ -137,6 +146,7 @@ paused := false
 STARTUP_LNK := A_Startup "\Midword.lnk"
 if FileExist(A_ScriptDir "\midword.ico")
     TraySetIcon(A_ScriptDir "\midword.ico")
+A_IconTip := "Midword v" VERSION
 A_TrayMenu.Delete()
 A_TrayMenu.Add("Gestionar atajos…", OpenManager)
 A_TrayMenu.Add("Ver todos los atajos", ShowAllFromTray)
@@ -160,12 +170,12 @@ TogglePause(*) {
         ih.Stop()
         ResetState()
         A_TrayMenu.Check("Pausar (no sugerir)")
-        A_IconTip := "Midword (en pausa)"
+        A_IconTip := "Midword v" VERSION " (en pausa)"
         TrayTip("En pausa: no se mostrarán sugerencias", "Midword")
     } else {
         ih.Start()
         A_TrayMenu.Uncheck("Pausar (no sugerir)")
-        A_IconTip := "Midword"
+        A_IconTip := "Midword v" VERSION
         TrayTip("Activo de nuevo", "Midword")
     }
 }
@@ -385,11 +395,12 @@ AppExcluded() {
 }
 
 HandleChar(hook, char) {
-    global typedBuf
+    global typedBuf, lastIns
     if Ord(char) < 32 {    ; caracteres de control (Ctrl+A, Ctrl+V…): el
         ResetState()       ; contenido del campo pudo cambiar; resetear
         return
     }
+    lastIns := ""          ; escribir algo cancela el deshacer con Backspace
     typedBuf .= char
     if StrLen(typedBuf) > 80
         typedBuf := SubStr(typedBuf, -80)
@@ -397,8 +408,20 @@ HandleChar(hook, char) {
 }
 
 HandleKeyDown(hook, vk, sc) {
-    global typedBuf
+    global typedBuf, lastIns
     if vk = 0x08 {  ; Backspace
+        ; deshacer: un Backspace justo después de expandir borra el texto
+        ; insertado y restaura lo que habías escrito (//atajo)
+        if lastIns != "" && A_TickCount - lastInsTick < 10000 {
+            n := BSLen(lastIns) - 1    ; este Backspace ya borró 1 carácter
+            if n > 0
+                SendInput("{BS " n "}")
+            if lastTypedTxt != ""
+                SendInput("{Text}" lastTypedTxt)
+            lastIns := ""
+            ResetState()
+            return
+        }
         if GetKeyState("Ctrl", "P") {  ; Ctrl+Backspace borra una palabra:
             ResetState()               ; imposible saber cuánto; resetear
             return
@@ -959,17 +982,25 @@ AcceptKey() {
 
 ; Borra lo escrito (//xxx) y lo reemplaza por el texto del atajo
 ExpandTrig(trig) {
-    global typedBuf, curTyped
+    global typedBuf, curTyped, lastIns, lastTypedTxt, lastInsTick
     txt := shortcuts[trig]
     HideSuggestions()
     if eraseLen > 0
         SendInput("{BS " eraseLen "}")
     Sleep 50
-    InsertText(txt)
+    lastIns := InsertText(txt)
+    lastTypedTxt := eraseLen > 0 ? PREFIX curTyped : ""
+    lastInsTick := A_TickCount
     if SONIDO
         SoundBeep(1400, 60)
     typedBuf := ""
     curTyped := ""
+}
+
+; nº de pulsaciones de Backspace para borrar s (por code point: los
+; emojis ocupan 2 unidades UTF-16 pero se borran con UN Backspace)
+BSLen(s) {
+    return StrLen(RegExReplace(s, "s).", "·"))
 }
 
 ; Pone un archivo en el portapapeles como CF_HDROP (igual que Ctrl+C
@@ -1024,11 +1055,13 @@ InsertFile(path) {
 ; Inserta pegando desde el portapapeles: instantáneo, soporta
 ; textos largos y los saltos de línea NO envían el mensaje en
 ; WhatsApp/Telegram. Restaura lo que tenías copiado.
+; Devuelve el texto realmente pegado ("" si no se pudo pegar, fue un
+; archivo o usó {cursor}): lo usa el deshacer con Backspace.
 InsertText(txt) {
     ; atajos de archivo:  miatajo=archivo:C:\ruta\imagen.png
     if SubStr(txt, 1, 8) = "archivo:" {
         InsertFile(Trim(SubStr(txt, 9)))
-        return
+        return ""
     }
     txt := StrReplace(txt, "{fecha_larga}", FormatTime(, "d 'de' MMMM 'de' yyyy"))
     txt := StrReplace(txt, "{fecha}", FormatTime(, "dd/MM/yyyy"))
@@ -1042,13 +1075,18 @@ InsertText(txt) {
     }
     saved := ClipboardAll()
     A_Clipboard := txt
+    pasted := false
     if ClipWait(1) {
         Send("^v")
         Sleep DELAY_PEGAR   ; dar tiempo a que la app procese el pegado
+        pasted := true
     }
     A_Clipboard := saved
-    if back > 0
+    if back > 0 {
         Send("{Left " back "}")
+        return ""   ; con {cursor} el caret ya no queda al final: sin deshacer
+    }
+    return pasted ? txt : ""
 }
 
 ; ==================== Mostrar todo / cerrar ====================
@@ -1084,9 +1122,10 @@ HideSuggestions() {
 }
 
 ResetState() {
-    global typedBuf, curTyped
+    global typedBuf, curTyped, lastIns
     typedBuf := ""
     curTyped := ""
+    lastIns := ""   ; clic o navegación: el caret pudo moverse, sin deshacer
     HideSuggestions()
 }
 

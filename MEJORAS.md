@@ -81,7 +81,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 - 🟡 **2.7 Estado global disperso**: ~40 variables globales. Sin romper el "un solo archivo", agrupar en clases (`class SuggestMenu`, `class SubMenu`, `class Manager`, `class Config`) mejora mantenibilidad y evita bugs de `global` olvidados.
 - 🟡 **2.8 Sin pruebas**: extraer el parser (`LoadShortcuts`/`ParseLevel`/`SerializeAtajo`/`AutoTok`) a funciones puras y escribir un `tests.ahk` que corra asserts en CI (roundtrip parse→serialize→parse).
 - 🔵 **2.9 IME / teclados con teclas muertas**: InputHook + tildes con teclas muertas funciona en layout latinoamericano, pero con IME (chino/japonés) no captura. Documentar como limitación conocida.
-- 🔵 **2.10 Constante de versión**: no existe `VERSION := "1.2.0"` en el script; el exe no reporta versión (agregarla también como recurso del exe vía directivas Ahk2Exe `;@Ahk2Exe-SetVersion`).
+- ✅ HECHO — 🔵 **2.10 Constante de versión**
+  > `VERSION := "1.3.0"` + directivas `;@Ahk2Exe-SetVersion/SetName/SetDescription/SetCopyright` (el exe compilado lleva metadatos) + versión visible en el tooltip del ícono de bandeja.
 
 ---
 
@@ -89,7 +90,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 
 - ✅ HECHO — 🟠 **3.1 Pausar/activar**
   > Toggle "Pausar (no sugerir)" en la bandeja (detiene el InputHook y limpia el estado) + hotkey opcional `hotkey_pausa` en `midword.ini` + tooltip del icono cambia a "(en pausa)". Pendiente menor: icono gris dedicado.
-- 🟠 **3.2 Deshacer expansión**: una expansión instantánea accidental no se puede revertir. Opción: presionar Backspace inmediatamente después de expandir restaura lo escrito (`//atajo`), como hacen Beeftext/espanso.
+- ✅ HECHO — 🟠 **3.2 Deshacer expansión**
+  > Backspace dentro de los 10 s posteriores a una expansión borra el texto insertado (contando por code points, no unidades UTF-16 — los emojis se borran bien) y restaura lo escrito (`//atajo`). Se cancela al escribir, hacer clic o mover el caret. No aplica a atajos con `{cursor}` ni de archivo.
 - 🟡 **3.3 Coincidencia sin tildes**: buscar `//numero` no encuentra un atajo cuyo texto dice "número". Normalizar con el mismo mapa de `AutoTok` al comparar.
 - 🟡 **3.4 Búsqueda difusa**: coincidencia por subsecuencia (`//grc` → `gracias`) además de prefijo/contiene.
 - 🟡 **3.5 Orden por frecuencia de uso**: contar usos por atajo (persistido) y rankear las coincidencias; los más usados primero.
@@ -159,8 +161,10 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 
 - ✅ HECHO — 🟠 **7.1 GIF de demo pendiente**
   > `demo.gif` generado desde `midword-demo-linkedin.mp4` con ffmpeg (520 px, 8 fps, paleta de 96 colores, 3.3 MB) e insertado en el README donde estaba el placeholder.
-- 🟡 **7.2 Badges y metadatos**: badges de release/licencia/descargas; topics del repo (`autohotkey`, `text-expander`, `windows`, `productivity`, `spanish`); social preview con el wordmark.
-- 🟡 **7.3 CHANGELOG.md**: existen 3 releases con notas, pero no hay changelog en el repo.
+- ✅ HECHO (badges) — 🟡 **7.2 Badges y metadatos**
+  > Badges de release, descargas, CI y licencia en el README. Los topics y el social preview se configuran en GitHub al pushear (manual o `gh repo edit --add-topic autohotkey --add-topic text-expander …`).
+- ✅ HECHO — 🟡 **7.3 CHANGELOG.md**
+  > Creado con las 3 versiones publicadas y una sección "[Sin publicar]" con todo lo de esta tanda de mejoras.
 - 🟡 **7.4 README en inglés** (`README.en.md`): el nicho hispano es el foco, pero un text expander gratis MIT tiene público global; duplica el alcance con una hora de trabajo.
 - 🟡 **7.5 Verificar Discussions**: `config.yml` enlaza a Discussions; si no está habilitado en el repo, el enlace da 404.
 - 🔵 **7.6 Comparativa honesta**: sección "¿Por qué Midword y no espanso/Beeftext/PhraseExpress?" — el diferencial real es el menú de autocompletado visual + submenús en cascada + español + prompt de IA incluido.

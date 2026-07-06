@@ -9,6 +9,11 @@
   <img src="branding/midword-wordmark-animated.svg" width="300" alt="mid|word — tu texto se completa solo">
 </picture>
 
+[![Release](https://img.shields.io/github/v/release/brolyroly007/midword?label=release&color=6A9E8C)](../../releases/latest)
+[![Descargas](https://img.shields.io/github/downloads/brolyroly007/midword/total?label=descargas&color=4A7C5F)](../../releases)
+[![CI](https://github.com/brolyroly007/midword/actions/workflows/ci.yml/badge.svg)](../../actions)
+[![Licencia MIT](https://img.shields.io/badge/licencia-MIT-blue)](LICENSE)
+
 **Expansor de texto global para Windows, con menú de autocompletado estilo WhatsApp.**
 
 Escribe `//atajo` en cualquier aplicación —WhatsApp Web, Word, Telegram, tu navegador— y aparece un menú flotante con tus frases guardadas. Tab o Enter, y el texto completo se inserta al instante.
