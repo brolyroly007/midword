@@ -74,7 +74,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > `OnError(LogError)`: registra fecha, mensaje y línea en `midword.log` (agregado a `.gitignore`) y muestra TrayTip amable en vez del diálogo crudo.
 - ✅ HECHO — 🟠 **2.2 Monitor múltiple**
   > Helper `MonWork(x, y, …)` con `MonitorGetWorkArea`: el menú y los 2 submenús se posicionan dentro del monitor donde está el caret (fallback al primario).
-- 🟠 **2.3 Caret en navegadores/Electron**: `CaretGetPos` falla en Chrome/WhatsApp Web y cae al mouse. Integrar detección por UIA/MSAA (patrón `TextPattern`) para posicionar junto al cursor real.
+- ✅ HECHO — 🟠 **2.3 Caret en navegadores/Electron**
+  > Nuevo fallback `AccCaretPos()`: MSAA `OBJID_CARET` vía `AccessibleObjectFromWindow` + `accLocation` (ComCall) con validación de tamaño para descartar rectángulos que no son caret. Cadena: `CaretGetPos` → MSAA → mouse. Refinamiento futuro posible: UIA `TextPattern2.GetCaretRange`.
 - 🟡 **2.4 Reconstrucción total del menú por tecla**: `BuildMenu()` destruye y recrea la GUI en cada pulsación → parpadeo y costo. Reusar la ventana actualizando textos/colores de las filas.
 - 🟡 **2.5 `HoverWatch` con polling de 80 ms**: sustituible por `OnMessage(WM_MOUSEMOVE)` en los controles; menos CPU y respuesta inmediata.
 - 🟡 **2.6 Ancho de texto estimado con `StrLen * 9`**: falla con fuentes/DPI distintos. Medir texto real (`Gui.AddText` + `GuiControlGet Pos`, o `DrawText` con `DT_CALCRECT`).
@@ -108,7 +109,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 
 ## 4. Gestor de atajos
 
-- 🟠 **4.1 Sin reordenar ni secciones**: el gestor siempre agrega al final; las secciones `# ── Ventas ──` del archivo no se ven ni se pueden elegir. Mostrar secciones como grupos en la lista y permitir "guardar en sección X" y mover arriba/abajo.
+- ✅ HECHO — 🟠 **4.1 Sin reordenar ni secciones**
+  > (a) Las secciones `# ── Nombre ──` aparecen como separadores en la lista; (b) al hacer clic en una sección (o editar un atajo de ella) los atajos nuevos se insertan al final de esa sección (`SectionInsertPos`); (c) botones ▲▼ reordenan el atajo seleccionado saltando comentarios (`MgrMove`).
 - ✅ HECHO — 🟠 **4.2 Aviso de conflicto instantáneo**
   > Al guardar un atajo instantáneo cuyo nombre es prefijo de otro atajo existente, el gestor avisa cuál chocaría y pide confirmación.
 - 🟡 **4.3 Ventana no redimensionable** (800×516 fijo) y sin `Esc` para cerrar. Con muchos atajos la lista de 270px queda corta.

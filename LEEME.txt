@@ -24,8 +24,11 @@ GESTOR: una ventana con la lista de tus atajos y un formulario.
    "Desglose nivel 1", una por línea (5, 10, 15…), y usa el botón {1}
    para marcar dónde va la opción dentro del texto. El nivel 2 igual, con {2}.
 3. Mira la vista previa y presiona "💾 Guardar". Listo, ya funciona.
-También puedes "📋 Importar desde IA": pega el bloque que te generó
+También puedes "Importar desde IA": pega el bloque que te generó
 ChatGPT/Claude con PROMPT_PARA_IA.txt y se validan e importan solos.
+La lista muestra tus secciones (# ── Ventas ──): haz clic en una
+sección y el próximo atajo nuevo se guardará ahí; con los botones
+▲ ▼ reordenas el atajo seleccionado.
 
 CÓMO AGREGAR ATAJOS (forma avanzada — editando el archivo)
 Abre atajos.txt (clic derecho en el ícono → "Editar atajos (archivo)")

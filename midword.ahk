@@ -97,6 +97,7 @@ order := []             ; entradas en orden del archivo:
                         ;   dims = [nivel1, nivel2?], cada nivel = [{tok, lab}]
                         ;   ("name" y no "base": base es palabra reservada)
 lastCfgTime := ""
+sections := []          ; secciones "# ── Nombre ──" del archivo: {name, line}
 
 ; --- Estado del menú ---
 typedBuf := ""          ; últimas teclas escritas por el usuario
@@ -129,6 +130,7 @@ mgrRows := []           ; entrada de `order` por fila visible de la lista
 mgrSelLine := 0         ; línea de atajos.txt en edición (0 = atajo nuevo)
 mgrSelRaw := ""         ; contenido original de esa línea, para reubicarla
                         ; si el archivo cambió por fuera mientras se editaba
+mgrNewSec := ""         ; sección donde insertar los atajos nuevos
 impGui := 0, impEdit := 0
 ; submenú nivel 2
 sub2Gui := 0
@@ -280,13 +282,20 @@ LoadShortcuts() {
     global rawLines := StrSplit(StrReplace(FileRead(CONFIG, "UTF-8"), "`r"), "`n")
     while rawLines.Length && Trim(rawLines[rawLines.Length]) = ""
         rawLines.Pop()
+    global sections := []
+    curSec := ""
     badLines := [], extraDims := [], dupToks := []
     lineNo := 0
     for raw in rawLines {
         lineNo++
         line := Trim(raw)
-        if line = "" || SubStr(line, 1, 1) = "#"
+        if line = "" || SubStr(line, 1, 1) = "#" {
+            if RegExMatch(line, "^#\s*──\s*(.+?)\s*──", &ms) {
+                curSec := ms[1]
+                sections.Push({name: curSec, line: lineNo})
+            }
             continue
+        }
         pos := InStr(line, "=")
         if !pos {
             badLines.Push(lineNo)
@@ -354,12 +363,12 @@ LoadShortcuts() {
                     }
                 }
             }
-            order.Push({kind: "group", name: base, dims: dims, variants: variants, template: txt, line: lineNo})
+            order.Push({kind: "group", name: base, dims: dims, variants: variants, template: txt, line: lineNo, sec: curSec})
         } else {
             shortcuts[trig] := txt
             if isInstant
                 instant[trig] := true
-            order.Push({kind: "item", trig: trig, line: lineNo})
+            order.Push({kind: "item", trig: trig, line: lineNo, sec: curSec})
         }
     }
     msg := ""
@@ -600,7 +609,7 @@ BuildMenu() {
     ; --- posición junto al cursor de texto ---
     x := 0, y := 0
     CoordMode "Caret", "Screen"
-    if !CaretGetPos(&x, &y) {
+    if !CaretGetPos(&x, &y) && !AccCaretPos(&x, &y) {
         CoordMode "Mouse", "Screen"
         MouseGetPos(&x, &y)
     }
@@ -620,6 +629,44 @@ BuildMenu() {
     ; si la primera fila es un grupo, mostrar su desglose de una vez
     if entries[1].kind = "group"
         OpenSub(1)
+}
+
+; Caret vía MSAA (OBJID_CARET) para apps donde CaretGetPos falla
+; (Chrome/Electron suelen exponerlo cuando activan su accesibilidad).
+; Coordenadas de pantalla; false si no hay caret accesible.
+AccCaretPos(&x, &y) {
+    static IID_IAccessible := "{618736E0-3C3D-11CF-810C-00AA00389B71}"
+    try {
+        info := Buffer(72, 0)
+        NumPut("uint", 72, info, 0)
+        if !DllCall("GetGUIThreadInfo", "uint", 0, "ptr", info)
+            return false
+        hwnd := NumGet(info, 16, "ptr")          ; hwndFocus
+        if !hwnd
+            hwnd := NumGet(info, 8, "ptr")       ; hwndActive
+        if !hwnd
+            return false
+        iid := Buffer(16)
+        DllCall("ole32\CLSIDFromString", "wstr", IID_IAccessible, "ptr", iid)
+        pacc := 0
+        if DllCall("oleacc\AccessibleObjectFromWindow", "ptr", hwnd
+            , "uint", 0xFFFFFFF8, "ptr", iid, "ptr*", &pacc) != 0 || !pacc
+            return false
+        acc := ComValue(9, pacc)                 ; IDispatch, libera solo
+        varChild := Buffer(24, 0)
+        NumPut("ushort", 3, varChild, 0)         ; VT_I4
+        NumPut("int", 0, varChild, 8)            ; CHILDID_SELF
+        l := Buffer(4), t := Buffer(4), w := Buffer(4), h := Buffer(4)
+        if ComCall(22, acc, "ptr", l, "ptr", t, "ptr", w, "ptr", h, "ptr", varChild) != 0
+            return false
+        cx := NumGet(l, "int"), cy := NumGet(t, "int")
+        cw := NumGet(w, "int"), ch := NumGet(h, "int")
+        if (cx = 0 && cy = 0) || cw > 300 || ch > 200   ; no parece un caret
+            return false
+        x := cx, y := cy
+        return true
+    }
+    return false
 }
 
 ; área de trabajo del monitor que contiene el punto x,y (multi-monitor)
@@ -1186,6 +1233,8 @@ OpenManager(*) {
     RoundCtrl(cardL, 330, 354, 24)
     mgrGui.SetFont("s9 w400 c" CLR_MUTED, "Segoe UI")
     mgrGui.Add("Text", "x30 y120 w200 Background" CLR_SURFACE, "Buscar atajo:")
+    Pill(mgrGui, 256, 116, 30, 20, "▲", CLR_ACC_LITE, CLR_ACC_DARK, MgrMove.Bind(-1), "s8 w700")
+    Pill(mgrGui, 292, 116, 30, 20, "▼", CLR_ACC_LITE, CLR_ACC_DARK, MgrMove.Bind(1), "s8 w700")
     mgrGui.SetFont("s10 w400 c" CLR_TEXT, "Segoe UI")
     mgrSearch := mgrGui.Add("Edit", "x30 y138 w294 Background" CLR_SURF_ALT)
     mgrSearch.OnEvent("Change", (*) => RefreshMgrList())
@@ -1262,10 +1311,17 @@ RefreshMgrList() {
     filter := mgrSearch.Value
     mgrLV.Delete()
     mgrRows := []
+    lastSec := ""
     for entry in order {
         label := EntryLabel(entry)
         prev := EntryPreview(entry)
         if filter = "" || InStr(label, filter) || InStr(prev, filter) {
+            ; separador de sección (solo sin filtro, para no estorbar)
+            if filter = "" && entry.sec != "" && entry.sec != lastSec {
+                mgrLV.Add(, "── " entry.sec, "")
+                mgrRows.Push({kind: "sec", name: entry.sec})
+            }
+            lastSec := entry.sec
             mgrLV.Add(, label, prev)
             mgrRows.Push(entry)
         }
@@ -1273,14 +1329,23 @@ RefreshMgrList() {
 }
 
 MgrItemSelect(lv, item, selected) {
-    if selected && item >= 1 && item <= mgrRows.Length
-        LoadEntryToForm(mgrRows[item])
+    global mgrNewSec
+    if !(selected && item >= 1 && item <= mgrRows.Length)
+        return
+    e := mgrRows[item]
+    if e.kind = "sec" {          ; clic en una sección: los atajos nuevos
+        MgrNew()                 ; se guardarán al final de esa sección
+        mgrNewSec := e.name
+        return
+    }
+    LoadEntryToForm(e)
 }
 
 LoadEntryToForm(entry) {
-    global mgrSelLine, mgrSelRaw
+    global mgrSelLine, mgrSelRaw, mgrNewSec
     mgrSelLine := entry.line
     mgrSelRaw := (entry.line >= 1 && entry.line <= rawLines.Length) ? rawLines[entry.line] : ""
+    mgrNewSec := entry.sec
     if entry.kind = "group" {
         mgrName.Value := entry.name
         mgrText.Value := StrReplace(entry.template, "`n", "`r`n")
@@ -1402,7 +1467,7 @@ MgrDup(*) {
 }
 
 MgrSave(*) {
-    global mgrSelLine, mgrSelRaw, rawLines
+    global mgrSelLine, mgrSelRaw, mgrNewSec, rawLines
     name := Trim(mgrName.Value)
     if name = "" || !RegExMatch(name, "^[^\s\[\]=!:|{}]+$") {
         MsgBox("El nombre no puede estar vacío ni llevar espacios, corchetes, `=`, `!`, `:` ni `|`.`n`nEjemplos válidos: con, gracias, precio2", "Midword", "Icon!")
@@ -1458,8 +1523,14 @@ MgrSave(*) {
     if idx
         rawLines[idx] := newLine
     else {
-        rawLines.Push(newLine)
-        idx := rawLines.Length
+        pos := SectionInsertPos(mgrNewSec)   ; nuevo: al final de su sección
+        if pos {
+            rawLines.InsertAt(pos, newLine)
+            idx := pos
+        } else {
+            rawLines.Push(newLine)
+            idx := rawLines.Length
+        }
     }
     mgrSelLine := idx
     mgrSelRaw := newLine
@@ -1479,6 +1550,46 @@ MgrDelete(*) {
     rawLines.RemoveAt(idx)
     SaveRawAndReload()
     MgrNew()
+}
+
+; línea donde insertar un atajo nuevo para que quede al final de la
+; sección `sec` (justo antes del siguiente encabezado "# ── … ──").
+; 0 = al final del archivo (sección vacía/última/no encontrada).
+SectionInsertPos(sec) {
+    if sec = ""
+        return 0
+    inSec := false
+    for i, ln in rawLines {
+        if RegExMatch(Trim(ln), "^#\s*──\s*(.+?)\s*──", &ms) {
+            if inSec
+                return i
+            inSec := (ms[1] = sec)
+        }
+    }
+    return 0
+}
+
+; mueve el atajo seleccionado una posición arriba/abajo (intercambia
+; con la línea de atajo adyacente, saltando comentarios y vacías)
+MgrMove(d, *) {
+    global rawLines, mgrSelLine, mgrSelRaw
+    idx := RelocateSelLine()
+    if !idx {
+        MsgBox("Selecciona primero un atajo de la lista.", "Midword", "Icon!")
+        return
+    }
+    j := idx + d
+    while j >= 1 && j <= rawLines.Length {
+        t := Trim(rawLines[j])
+        if t != "" && SubStr(t, 1, 1) != "#"
+            break
+        j += d
+    }
+    if j < 1 || j > rawLines.Length
+        return
+    tmp := rawLines[idx], rawLines[idx] := rawLines[j], rawLines[j] := tmp
+    mgrSelLine := j
+    SaveRawAndReload()
 }
 
 ; relee atajos.txt desde disco a rawLines (por si se editó por fuera)
