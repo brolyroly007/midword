@@ -43,7 +43,8 @@ Si `OpenClipboard` o `SetClipboardData` fallan, el `hMem` de `GlobalAlloc` nunca
 - Seleccionar texto y escribir encima, o mover el cursor con clic dentro del mismo campo, desincroniza `eraseLen` → al expandir se borran caracteres de más o de menos.
 Mitigación: resetear el buffer también con Ctrl+Backspace, Ctrl+A, y considerar el clic izquierdo dentro de un campo de texto (hoy solo resetea si el clic no fue sobre el menú, lo cual está bien, pero Ctrl+Backspace no está cubierto).
 
-### 🟠 1.7 Restauración del portapapeles con `Sleep` fijo
+### ✅ HECHO — 🟠 1.7 Restauración del portapapeles con `Sleep` fijo
+> Resuelto con `delay_pegar` y `delay_archivo` configurables en `midword.ini` (defaults 250/1200 ms). Refinamiento posible a futuro: detectar el dueño del portapapeles en vez de esperar.
 `InsertText` espera 250 ms y `InsertFile` 1200 ms antes de restaurar el portapapeles. En apps lentas (Electron pesado, RDP, WhatsApp Web con lag) el Ctrl+V se procesa DESPUÉS de restaurar → se pega el contenido viejo del portapapeles. Mejoras: delay configurable en `atajos.txt`/ini, o restaurar con un timer más largo no bloqueante, o detectar el `WM_RENDERFORMAT`/dueño del portapapeles.
 
 ### 🟠 1.8 Grupos con 3+ niveles se aceptan y fallan en silencio
@@ -86,7 +87,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 - 🟡 **3.3 Coincidencia sin tildes**: buscar `//numero` no encuentra un atajo cuyo texto dice "número". Normalizar con el mismo mapa de `AutoTok` al comparar.
 - 🟡 **3.4 Búsqueda difusa**: coincidencia por subsecuencia (`//grc` → `gracias`) además de prefijo/contiene.
 - 🟡 **3.5 Orden por frecuencia de uso**: contar usos por atajo (persistido) y rankear las coincidencias; los más usados primero.
-- 🟡 **3.6 Lista negra/blanca de aplicaciones**: sección en config (`;apps_excluidas=Code.exe|WindowsTerminal.exe`) para no activarse en editores de código, juegos o terminales.
+- ✅ HECHO — 🟡 **3.6 Lista negra/blanca de aplicaciones**
+  > `apps_excluidas=Code.exe|WindowsTerminal.exe` en `midword.ini`; `AppExcluded()` compara el exe de la ventana activa al inicio de `UpdateSuggestions` (bloquea menú y expansión instantánea).
 - 🟡 **3.7 Tema oscuro del menú**: la paleta es fija (crema). Detectar el tema de Windows (`AppsUseLightTheme`) y ofrecer paleta oscura.
 - 🟡 **3.8 Truncado visual sin elipsis**: la columna del trigger se corta a `TW=200px` sin "…". Añadir elipsis o tooltip.
 - 🔵 **3.9 Scroll en el menú**: con más de 10 coincidencias solo dice "sigue escribiendo… (+N)". Permitir bajar con ↓ más allá de la fila 10 (paginado o scroll real).
@@ -106,14 +108,16 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 - 🟡 **4.6 Botón Exportar**: para llevar atajos a otra PC (copia el archivo o las líneas seleccionadas al portapapeles). El caso "copiado de otra PC" ya se menciona en el código, pero solo existe la mitad (importar).
 - 🔵 **4.7 Probar atajo desde el gestor**: botón "Probar" que expande en un Edit de prueba, con variables resueltas.
 - 🔵 **4.8 Multi-selección para eliminar** varios de una vez.
-- 🔵 **4.9 Atajo global para abrir el gestor** (ej. `Ctrl+Alt+G`), sin ir a la bandeja.
+- ✅ HECHO — 🔵 **4.9 Atajo global para abrir el gestor**
+  > `hotkey_gestor=^!g` en `midword.ini` (opcional, sin default para no chocar con otras apps).
 - 🔵 **4.10 Inconsistencia docs**: `LEEME.txt` menciona botones "➕ Nuevo", "💾 Guardar", "📋 Importar" con emoji; los reales dicen "+ Nuevo", "Guardar", "Importar desde IA". Alinear.
 
 ---
 
 ## 5. Formato de `atajos.txt` y variables
 
-- 🟠 **5.1 Prefijo configurable**: `PREFIX := "//"` está en código. Muchos usuarios preferirán `;;` o `:` (evita el problema de URLs del 1.4). Leerlo de una línea de config (`;prefijo=;;`) o de un `midword.ini`.
+- ✅ HECHO — 🟠 **5.1 Prefijo configurable**
+  > `prefijo=;;` en `midword.ini` (default `//`). El menú, la expansión, el borrado y la etiqueta del gestor usan `PREFIX` en todos lados.
 - 🟡 **5.2 Más variables**: `{portapapeles}` (inserta lo copiado dentro de la plantilla), `{fecha+7}` / `{fecha-1}` (aritmética de fechas para plazos de entrega — muy útil para RedactorIA), `{input:Nombre del cliente}` (mini-prompt al expandir), `{mayus:...}`, variables definidas por el usuario (`$yape=999...` reutilizable en varios atajos).
 - 🟡 **5.3 Escapes incompletos**: solo existe `\n`. No hay forma de insertar un `\n` literal, ni `\t`, ni `{1}` literal en un texto de grupo. Definir `\\n`, `\t`, `\{`.
 - 🟡 **5.4 `archivo:` múltiple**: `CF_HDROP` soporta lista de archivos; permitir `archivo:ruta1|ruta2` para adjuntar varios de un golpe (catálogo + lista de precios).
@@ -135,8 +139,10 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > `.github/workflows/ci.yml`: job `validar` (descarga AutoHotkey v2 y corre `/validate` en cada push/PR) y job `release` (en tags `v*` compila con Ahk2Exe y adjunta `Midword.exe` + `SHA256.txt` al Release). OJO al pushear: si el token de gh no tiene scope `workflow`, subir el yml aparte.
 - ✅ HECHO — 🟡 **6.4 `recompilar.ps1` frágil**
   > Ahora: valida que AutoHotkey y Ahk2Exe existan, compila a `Midword.new.exe` temporal, espera el archivo con timeout de 30 s (sin sleep ciego), recién entonces mata el proceso y reemplaza el exe; se eliminó el kill del proceso legado `Atajos`.
-- 🟡 **6.5 Firma de código / SmartScreen**: el exe sin firma dispara SmartScreen y falsos positivos AV (el README ya lo explica). Opciones: certificado de firma (costoso), enviar el exe a Microsoft para whitelisting, publicar hash SHA-256 + enlace VirusTotal en cada release.
-- 🟡 **6.6 Winget / Scoop / Chocolatey**: manifiesto winget (`brolyroly007.Midword`) y bucket de Scoop. Instala con un comando y da legitimidad frente a antivirus.
+- ⏭️ OMITIDO — 🟡 **6.5 Firma de código / SmartScreen**
+  > La parte automatizable ya está: el CI publica `SHA256.txt` con cada release. El certificado de firma y el whitelisting de Microsoft requieren cuenta/pago externos — decisión del dueño del proyecto.
+- ⏭️ OMITIDO — 🟡 **6.6 Winget / Scoop / Chocolatey**
+  > Requiere submission a repositorios externos (microsoft/winget-pkgs, bucket de Scoop) con revisión humana; fuera del alcance del loop local.
 - 🔵 **6.7 Buscador de actualizaciones**: opción de bandeja "Buscar actualización" que consulte `api.github.com/repos/brolyroly007/midword/releases/latest` y avise si hay versión nueva.
 - 🔵 **6.8 Instalador opcional** (Inno Setup): para el público no técnico que no sabe "descargar un exe y crear acceso directo". Mantener el zip portable como opción A.
 
@@ -156,21 +162,21 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 
 ---
 
-## 8. Opciones y personalización (nuevo `midword.ini` o sección de config)
+## 8. ✅ HECHO (salvo `tema`) — Opciones y personalización (`midword.ini`)
 
-Hoy no hay ningún ajuste de usuario. Candidatos, todos leídos de un ini o de líneas `;clave=valor` en `atajos.txt`:
+> Implementado: `midword.ini` opcional con sección `[opciones]` y helper `OptGet()`. Documentado en LEEME.txt y en el encabezado del script.
 
-| Opción | Default | Nota |
+| Opción | Default | Estado |
 |---|---|---|
-| `prefijo` | `//` | ver 5.1 |
-| `min_caracteres` | 0 | no abrir menú hasta N chars tras el prefijo (mitiga 1.4) |
-| `max_filas` | 10 | filas visibles del menú |
-| `delay_pegar` | 250 ms | ver 1.7 |
-| `delay_archivo` | 1200 ms | ver 1.7 |
-| `tema` | claro | claro/oscuro/auto (3.7) |
-| `apps_excluidas` | — | ver 3.6 |
-| `sonido` | off | feedback audible al expandir |
-| `hotkey_pausa`, `hotkey_gestor` | — | ver 3.1 / 4.9 |
+| `prefijo` | `//` | ✅ |
+| `min_caracteres` | 0 | ✅ |
+| `max_filas` | 10 (3–20) | ✅ |
+| `delay_pegar` | 250 ms | ✅ |
+| `delay_archivo` | 1200 ms | ✅ |
+| `tema` | claro | ⏳ pendiente, va con el ítem 3.7 (tema oscuro) |
+| `apps_excluidas` | — | ✅ |
+| `sonido` | 0 | ✅ (`sonido=1` → bip al insertar) |
+| `hotkey_pausa`, `hotkey_gestor` | — | ✅ |
 
 ---
 
@@ -198,5 +204,5 @@ Hoy no hay ningún ajuste de usuario. Candidatos, todos leídos de un ini o de l
 6. ✅ GIF de demo en el README (7.1) — costo mínimo, máximo impacto.
 7. ✅ CI de validación + release automático (6.3).
 8. ✅ Lost-update del gestor con ediciones externas (1.3).
-9. 🟡 Prefijo y delays configurables (5.1, 8).
-10. 🟡 Winget/Scoop + hash en releases (6.5, 6.6).
+9. ✅ Prefijo y delays configurables (5.1, 8).
+10. ⏭️ Winget/Scoop (submission externa) — el hash en releases sí quedó ✅ vía CI (6.5, 6.6).

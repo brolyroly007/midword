@@ -25,15 +25,37 @@ Persistent
 SendMode "Input"
 
 CONFIG := A_ScriptDir "\atajos.txt"
-PREFIX := "//"
 
 ; --- Opciones (midword.ini es opcional; si no existe se usan los defaults) ---
 ;   [opciones]
-;   min_caracteres=1   → no mostrar el menú hasta escribir N letras después de //
-;   hotkey_pausa=^!m   → atajo para pausar/reanudar (sintaxis de hotkeys de AHK)
+;   prefijo=;;             → activador en vez de //
+;   min_caracteres=1       → no mostrar el menú hasta escribir N letras tras el prefijo
+;   max_filas=10           → filas visibles del menú (3–20)
+;   delay_pegar=250        → ms de espera tras pegar antes de restaurar el portapapeles
+;   delay_archivo=1200     → ídem para atajos de archivo
+;   apps_excluidas=Code.exe|WindowsTerminal.exe → no sugerir en esas apps
+;   sonido=1               → bip suave al insertar
+;   hotkey_pausa=^!m       → atajo para pausar/reanudar (sintaxis de hotkeys de AHK)
+;   hotkey_gestor=^!g      → atajo para abrir el gestor
 INI := A_ScriptDir "\midword.ini"
+OptGet(key, def) {
+    try return IniRead(INI, "opciones", key, def)
+    return def
+}
+PREFIX := OptGet("prefijo", "//")
 MIN_CHARS := 0
-try MIN_CHARS := Integer(IniRead(INI, "opciones", "min_caracteres", "0"))
+try MIN_CHARS := Integer(OptGet("min_caracteres", "0"))
+MAX_ROWS := 10
+try MAX_ROWS := Max(3, Min(20, Integer(OptGet("max_filas", "10"))))
+DELAY_PEGAR := 250
+try DELAY_PEGAR := Max(0, Integer(OptGet("delay_pegar", "250")))
+DELAY_ARCHIVO := 1200
+try DELAY_ARCHIVO := Max(0, Integer(OptGet("delay_archivo", "1200")))
+SONIDO := OptGet("sonido", "0") = "1"
+APPS_EXCL := []
+for a in StrSplit(OptGet("apps_excluidas", ""), "|")
+    if Trim(a) != ""
+        APPS_EXCL.Push(StrLower(Trim(a)))
 
 ; --- Paleta (de colors.xml de BiPe Alerta) ---
 CLR_BG       := "F0EEE6"   ; ra_bg — crema, header
@@ -159,11 +181,16 @@ ih.OnChar := HandleChar
 ih.OnKeyDown := HandleKeyDown
 ih.Start()
 
-; hotkey opcional para pausar/reanudar, p. ej.  [opciones] hotkey_pausa=^!m
+; hotkeys opcionales del ini:  hotkey_pausa=^!m   hotkey_gestor=^!g
 try {
-    hkPausa := IniRead(INI, "opciones", "hotkey_pausa", "")
-    if hkPausa != ""
-        Hotkey(hkPausa, TogglePause)
+    hk := OptGet("hotkey_pausa", "")
+    if hk != ""
+        Hotkey(hk, TogglePause)
+}
+try {
+    hk := OptGet("hotkey_gestor", "")
+    if hk != ""
+        Hotkey(hk, OpenManager)
 }
 
 ; --- Recarga automática cuando se edita atajos.txt ---
@@ -314,6 +341,18 @@ LoadShortcuts() {
 
 ; ==================== Detección de escritura ====================
 
+; ¿la app activa está en apps_excluidas del ini?
+AppExcluded() {
+    if !APPS_EXCL.Length
+        return false
+    exe := ""
+    try exe := StrLower(WinGetProcessName("A"))
+    for a in APPS_EXCL
+        if a = exe
+            return true
+    return false
+}
+
 HandleChar(hook, char) {
     global typedBuf
     typedBuf .= char
@@ -338,6 +377,10 @@ HandleKeyDown(hook, vk, sc) {
 
 UpdateSuggestions() {
     global entries, curTyped, eraseLen
+    if AppExcluded() {
+        HideSuggestions()
+        return
+    }
     p := InStr(typedBuf, PREFIX, , -1)  ; última aparición de //
     if !p {
         HideSuggestions()
@@ -437,7 +480,7 @@ BuildMenu() {
     selIdx := 1
 
     W := 620, HH := 30, RH := 36
-    n := Min(entries.Length, 10)
+    n := Min(entries.Length, MAX_ROWS)
     extra := entries.Length - n
     FH := extra > 0 ? 24 : 0
     H := 1 + HH + n * RH + FH + 1
@@ -869,6 +912,8 @@ ExpandTrig(trig) {
         SendInput("{BS " eraseLen "}")
     Sleep 50
     InsertText(txt)
+    if SONIDO
+        SoundBeep(1400, 60)
     typedBuf := ""
     curTyped := ""
 }
@@ -905,7 +950,7 @@ InsertFile(path) {
         return
     }
     Send("^v")
-    Sleep 1200   ; adjuntar un archivo tarda más que pegar texto
+    Sleep DELAY_ARCHIVO   ; adjuntar un archivo tarda más que pegar texto
     A_Clipboard := saved
 }
 
@@ -932,7 +977,7 @@ InsertText(txt) {
     A_Clipboard := txt
     if ClipWait(1) {
         Send("^v")
-        Sleep 250   ; dar tiempo a que la app procese el pegado
+        Sleep DELAY_PEGAR   ; dar tiempo a que la app procese el pegado
     }
     A_Clipboard := saved
     if back > 0
@@ -1047,7 +1092,7 @@ OpenManager(*) {
     RoundCtrl(cardR, 434, 354, 24)
     X2 := 372
     mgrGui.SetFont("s9 w400 c" CLR_MUTED, "Segoe UI")
-    mgrGui.Add("Text", "x" X2 " y118 w220 Background" CLR_SURFACE, "Nombre (lo escribirás como //nombre):")
+    mgrGui.Add("Text", "x" X2 " y118 w220 Background" CLR_SURFACE, "Nombre (lo escribirás como " PREFIX "nombre):")
     mgrGui.SetFont("s10 w400 c" CLR_TEXT, "Segoe UI")
     mgrName := mgrGui.Add("Edit", "x" X2 " y136 w180 Background" CLR_SURF_ALT)
     mgrName.OnEvent("Change", (*) => UpdateMgrPreview())

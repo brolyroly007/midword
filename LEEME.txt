@@ -94,5 +94,12 @@ DETALLES TÉCNICOS
   (útil para juegos o presentaciones). Vuelve a hacer clic para reanudar.
 - Opciones avanzadas: crea un midword.ini junto al exe con
       [opciones]
-      min_caracteres=1     ← el menú espera N letras después de //
+      prefijo=;;           ← usar otro activador en vez de //
+      min_caracteres=1     ← el menú espera N letras después del prefijo
+      max_filas=10         ← filas visibles del menú (3 a 20)
+      delay_pegar=250      ← ms de espera al pegar (súbelo si tu app es lenta)
+      delay_archivo=1200   ← ídem para atajos de archivo
+      apps_excluidas=Code.exe|WindowsTerminal.exe  ← no sugerir en esas apps
+      sonido=1             ← bip suave al insertar
       hotkey_pausa=^!m     ← Ctrl+Alt+M pausa/reanuda (sintaxis AHK)
+      hotkey_gestor=^!g    ← Ctrl+Alt+G abre el gestor
