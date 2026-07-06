@@ -89,7 +89,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > Decisión deliberada: es un refactor cosmético de ~1600 líneas con cientos de renombres y alto riesgo de regresión en código de UI que el selftest no cubre, sin beneficio funcional para el usuario. CONTRIBUTING documenta el estilo actual. Si se retoma, hacerlo con el selftest (2.8) como red y por módulos pequeños.
 - ✅ HECHO — 🟡 **2.8 Sin pruebas**
   > `midword.ahk --selftest`: asserts sobre las funciones puras (`AutoTok`, `ParseLevel`, `SerializeAtajo` + roundtrip, `BSLen`, `JoinNums`, `Norm`, `FuzzyMatch`), sale con código ≠0 si falla. Integrado como paso del CI y de `recompilar.ps1`. Pasa 16/16.
-- 🔵 **2.9 IME / teclados con teclas muertas**: InputHook + tildes con teclas muertas funciona en layout latinoamericano, pero con IME (chino/japonés) no captura. Documentar como limitación conocida.
+- ✅ HECHO — 🔵 **2.9 IME / teclados con teclas muertas**
+  > Documentado como limitación conocida en LEEME (sección "Limitaciones conocidas") y en CONTRIBUTING (para que nadie intente "arreglarlo" con hooks extra).
 - ✅ HECHO — 🔵 **2.10 Constante de versión**
   > `VERSION := "1.3.0"` + directivas `;@Ahk2Exe-SetVersion/SetName/SetDescription/SetCopyright` (el exe compilado lleva metadatos) + versión visible en el tooltip del ícono de bandeja.
 
@@ -113,10 +114,14 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
   > `tema=claro|oscuro|auto` en `midword.ini` (default auto: lee `AppsUseLightTheme` del registro). Paleta `MNU_*` separada para menú y submenús con variante oscura en armonía con el verde salvia. El gestor mantiene el tema claro (diseño BiPe de tarjetas), anotado como decisión.
 - ✅ HECHO — 🟡 **3.8 Truncado visual sin elipsis**
   > Estilo `SS_ENDELLIPSIS` (+0x4000) en las columnas de trigger y vista previa del menú: lo cortado muestra "…".
-- 🔵 **3.9 Scroll en el menú**: con más de 10 coincidencias solo dice "sigue escribiendo… (+N)". Permitir bajar con ↓ más allá de la fila 10 (paginado o scroll real).
-- 🔵 **3.10 Sombra de la ventana**: al ser `-Caption` no hay sombra DWM; en Win11 se puede pedir esquina redondeada nativa (`DWMWA_WINDOW_CORNER_PREFERENCE=33`) y sombra, en vez de `WinSetRegion` (que produce bordes dentados).
-- 🔵 **3.11 Números rápidos**: `Alt+1..9` (o `Ctrl+número`) para insertar la fila N sin flechas.
-- 🔵 **3.12 Vista previa completa**: tooltip o panel al costado con el texto completo del atajo seleccionado (hoy se corta a 56 chars).
+- ✅ HECHO — 🔵 **3.9 Scroll en el menú**
+  > `viewOff` + `EntryAt()`: ↓ al llegar al fondo desplaza la ventana (y ↑ al inicio); en los topes absolutos envuelve. El pie muestra los restantes o "(fin de la lista)".
+- ✅ HECHO — 🔵 **3.10 Sombra de la ventana**
+  > `RoundWin()`: en Win11 esquinas nativas de DWM (`DWMWCP_ROUND`, con sombra); en Win10 se conserva `WinSetRegion`.
+- ✅ HECHO — 🔵 **3.11 Números rápidos**
+  > `Alt+1..9` inserta la fila N directamente mientras el menú está visible.
+- ✅ HECHO — 🔵 **3.12 Vista previa completa**
+  > Tooltip bajo el menú con el texto completo (hasta 400 chars) cuando la fila seleccionada está truncada o es multilínea; se limpia al cerrar.
 
 ---
 
@@ -158,7 +163,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 - 🔵 **5.6 BOM/codificación**: si el usuario guarda el archivo como ANSI desde un editor viejo, las tildes se rompen. Escribir con BOM UTF-8 (`UTF-8-RAW` vs `UTF-8` en AHK) y detectar/convertir al leer.
 - 🔵 **5.7 Grupos de 3+ niveles** (hoy silenciosamente rotos, ver 1.8): o soportarlos de verdad generalizando `OpenSub` (recursivo), o rechazarlos con aviso.
 - 🔵 **5.8 Texto con formato (rich text)**: colocar HTML/RTF en el portapapeles además de texto plano, para que en Word/Gmail se pegue con negritas. Complejo pero factible (formatos `CF_HTML`/`Rich Text Format`).
-- 🔵 **5.9 Modo tecleo por app**: algunas apps no aceptan Ctrl+V (terminales, RDP, campos "seguros"). Sintaxis `atajo=teclear:texto` o config por app que use `SendText` en lugar de pegar.
+- ✅ HECHO — 🔵 **5.9 Modo tecleo por app**
+  > Sintaxis `atajo=teclear:texto`: se escribe con `SendText` en vez de pegar (con variables resueltas; `{cursor}` no aplica). Documentado en LEEME.
 
 ---
 

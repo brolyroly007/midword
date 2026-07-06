@@ -95,6 +95,12 @@ Abre PROMPT_PARA_IA.txt, copia todo su contenido, pégalo en ChatGPT/Claude/
 Gemini, describe tu negocio al final, y pega las líneas que te devuelva
 dentro de atajos.txt. En 3 segundos ya están activos.
 
+LIMITACIONES CONOCIDAS
+- Teclados IME (chino/japonés/coreano): la escritura por composición
+  no se captura; los atajos deben escribirse con el teclado directo.
+- En algunas apps que bloquean Ctrl+V (ciertos terminales), usa la
+  sintaxis  atajo=teclear:texto  para que se escriba tecla por tecla.
+
 DETALLES TÉCNICOS
 - El texto se inserta pegando desde el portapapeles (instantáneo incluso
   con textos largos). Lo que tenías copiado se restaura automáticamente.

@@ -186,6 +186,8 @@ selIdx := 1
 menuX := 0, menuY := 0, menuHH := 0, menuRH := 0, menuW := 0
 menuTW := 0             ; ancho de la columna del trigger (para reusar la GUI)
 menuFooter := 0         ; control del pie "+N atajos más"
+menuH := 0              ; alto de la ventana del menú (para el tooltip)
+viewOff := 0            ; desplazamiento de scroll: fila i = entries[viewOff+i]
 ; submenú nivel 1
 subGui := 0
 subEntry := 0           ; entrada de grupo a la que pertenece
@@ -277,6 +279,7 @@ ih.OnChar := HandleChar
 ih.OnKeyDown := HandleKeyDown
 ih.Start()
 OnMessage(0x200, OnMouseMove)   ; hover del menú sin timer de polling
+CoordMode "ToolTip", "Screen"   ; para la vista previa completa
 
 ; hotkeys opcionales del ini:  hotkey_pausa=^!m   hotkey_gestor=^!g
 try {
@@ -309,6 +312,16 @@ NumpadEnter::AcceptKey()
 Esc::ResetState()
 Down::NavKey(1)
 Up::NavKey(-1)
+; Alt+1..9 inserta la fila N directamente
+!1::AcceptIndex(1)
+!2::AcceptIndex(2)
+!3::AcceptIndex(3)
+!4::AcceptIndex(4)
+!5::AcceptIndex(5)
+!6::AcceptIndex(6)
+!7::AcceptIndex(7)
+!8::AcceptIndex(8)
+!9::AcceptIndex(9)
 #HotIf
 
 ~LButton:: {
@@ -690,6 +703,11 @@ EntryLabel(entry) {
     return entry.kind = "group" ? PREFIX entry.name "  ▸" : PREFIX entry.trig
 }
 
+; entrada mostrada en la fila i del menú (con el scroll aplicado)
+EntryAt(i) {
+    return entries[viewOff + i]
+}
+
 ; ancho real del texto en píxeles lógicos de la GUI (GetTextExtentPoint32
 ; con la fuente indicada, corregido por DPI) — reemplaza el estimado *9
 TextWidth(s, fontName := "Consolas", size := 10, weight := 700) {
@@ -734,7 +752,7 @@ EntryPreview(entry) {
 
 BuildMenu() {
     global sugGui, suggesting, rows, rowByHwnd, selIdx, menuNav
-    global menuX, menuY, menuHH, menuRH, menuW, menuTW, menuFooter
+    global menuX, menuY, menuHH, menuRH, menuW, menuTW, menuFooter, menuH, viewOff
     W := 620, HH := 30, RH := 36
     n := Min(entries.Length, MAX_ROWS)
     extra := entries.Length - n
@@ -755,7 +773,7 @@ BuildMenu() {
     ; textos: evita el parpadeo de destruir/crear GUI en cada tecla
     if sugGui && rows.Length = n && menuTW = TW && (menuFooter != 0) = (extra > 0) {
         CloseSub()
-        selIdx := 1, menuNav := false
+        selIdx := 1, menuNav := false, viewOff := 0
         loop n {
             entry := entries[A_Index]
             r := rows[A_Index]
@@ -765,6 +783,7 @@ BuildMenu() {
         }
         if menuFooter
             menuFooter.Text := "      sigue escribiendo… (+" extra " atajos más)"
+        ShowFullPreview(1)
         if entries[1].kind = "group"
             OpenSub(1)
         return
@@ -774,7 +793,7 @@ BuildMenu() {
     if sugGui
         sugGui.Destroy()
     rows := [], rowByHwnd := Map()
-    selIdx := 1, menuNav := false
+    selIdx := 1, menuNav := false, viewOff := 0
     menuTW := TW, menuFooter := 0
 
     sugGui := Gui("+AlwaysOnTop -Caption +ToolWindow +E0x08000000")
@@ -832,10 +851,11 @@ BuildMenu() {
         x := mL
     if y > mB - (H + 60)
         y -= H + 50
-    menuX := x, menuY := y, menuHH := HH, menuRH := RH, menuW := W
+    menuX := x, menuY := y, menuHH := HH, menuRH := RH, menuW := W, menuH := H
     sugGui.Show("x" x " y" y " w" W " h" H " NoActivate")
-    WinSetRegion("0-0 w" W " h" H " R14-14", sugGui)
+    RoundWin(sugGui, W, H, 14)
     suggesting := true
+    ShowFullPreview(1)
     ; si la primera fila es un grupo, mostrar su desglose de una vez
     if entries[1].kind = "group"
         OpenSub(1)
@@ -899,7 +919,7 @@ OpenSub(i) {
     if subForIdx = i && subGui
         return
     CloseSub()
-    entry := entries[i]
+    entry := EntryAt(i)
     if entry.kind != "group"
         return
     subEntry := entry
@@ -951,7 +971,7 @@ OpenSub(i) {
         y := mB - 50 - H2
     subX := x, subY := y, subW := W2
     subGui.Show("x" x " y" y " w" W2 " h" H2 " NoActivate")
-    WinSetRegion("0-0 w" W2 " h" H2 " R12-12", subGui)
+    RoundWin(subGui, W2, H2, 12)
 }
 
 CloseSub() {
@@ -1030,7 +1050,19 @@ OpenSub2(j) {
     if y + H3 > mB - 50
         y := mB - 50 - H3
     sub2Gui.Show("x" x " y" y " w" W3 " h" H3 " NoActivate")
-    WinSetRegion("0-0 w" W3 " h" H3 " R12-12", sub2Gui)
+    RoundWin(sub2Gui, W3, H3, 12)
+}
+
+; esquinas redondeadas: en Win11 nativas de DWM (con sombra); en
+; Win10 la región recortada de siempre (sin sombra)
+RoundWin(g, w, h, r) {
+    if VerCompare(A_OSVersion, "10.0.22000") >= 0 {
+        try {
+            DllCall("dwmapi\DwmSetWindowAttribute", "ptr", g.Hwnd, "int", 33, "int*", 2, "int", 4)
+            return
+        }
+    }
+    WinSetRegion("0-0 w" w " h" h " R" r "-" r, g)
 }
 
 CloseSub2() {
@@ -1076,15 +1108,16 @@ SetSel(i) {
         StyleRow(selIdx, false)
     selIdx := i
     StyleRow(i, true)
-    if entries[i].kind = "group"
+    ShowFullPreview(i)
+    if EntryAt(i).kind = "group"
         OpenSub(i)
     else
         CloseSub()
 }
 
 SelIsGroup() {
-    return entries.Length && selIdx >= 1 && selIdx <= entries.Length
-        && entries[selIdx].kind = "group"
+    return entries.Length && selIdx >= 1 && selIdx <= rows.Length
+        && viewOff + selIdx <= entries.Length && EntryAt(selIdx).kind = "group"
 }
 
 SubHasL2() {
@@ -1126,7 +1159,7 @@ GoLeft() {
 }
 
 NavKey(d) {
-    global menuNav := true
+    global viewOff, menuNav := true
     if sub2Active {
         k := sub2Sel + d
         if k < 1
@@ -1148,11 +1181,75 @@ NavKey(d) {
         return
     }
     i := selIdx + d
-    if i < 1
-        i := rows.Length
-    else if i > rows.Length
-        i := 1
+    if i < 1 {
+        if viewOff > 0 {                      ; scroll hacia arriba
+            viewOff--
+            ScrollSync(1)
+        } else {                              ; tope absoluto → ir al final
+            viewOff := Max(0, entries.Length - rows.Length)
+            ScrollSync(Min(rows.Length, entries.Length))
+        }
+        return
+    }
+    if i > rows.Length {
+        if viewOff + rows.Length < entries.Length {   ; scroll hacia abajo
+            viewOff++
+            ScrollSync(rows.Length)
+        } else {                              ; fin absoluto → volver arriba
+            viewOff := 0
+            ScrollSync(1)
+        }
+        return
+    }
     SetSel(i)
+}
+
+; tras un scroll: repintar las filas con la ventana desplazada y
+; seleccionar newSel aunque el número de fila no haya cambiado
+ScrollSync(newSel) {
+    global selIdx, viewOff
+    RefreshMenuRows()
+    CloseSub()
+    if selIdx >= 1 && selIdx <= rows.Length && selIdx != newSel
+        StyleRow(selIdx, false)
+    selIdx := newSel
+    StyleRow(newSel, true)
+    ShowFullPreview(newSel)
+    if EntryAt(newSel).kind = "group"
+        OpenSub(newSel)
+}
+
+RefreshMenuRows() {
+    loop rows.Length {
+        entry := EntryAt(A_Index)
+        r := rows[A_Index]
+        r.trig.Text := "  " EntryLabel(entry)
+        r.prev.Text := EntryPreview(entry)
+    }
+    if menuFooter {
+        rem := entries.Length - viewOff - rows.Length
+        menuFooter.Text := rem > 0
+            ? "      sigue escribiendo… (+" rem " atajos más)"
+            : "      (fin de la lista)"
+    }
+}
+
+; tooltip con el texto completo del atajo seleccionado si la vista
+; previa de la fila no alcanza (textos largos o multilínea)
+ShowFullPreview(i) {
+    if viewOff + i > entries.Length {
+        ToolTip(, , , 20)
+        return
+    }
+    entry := EntryAt(i)
+    txt := entry.kind = "group" ? entry.template : shortcuts[entry.trig]
+    if SubStr(txt, 1, 8) = "archivo:" || (StrLen(txt) <= 56 && !InStr(txt, "`n")) {
+        ToolTip(, , , 20)
+        return
+    }
+    if StrLen(txt) > 400
+        txt := SubStr(txt, 1, 400) "…"
+    ToolTip(txt, menuX + 6, menuY + menuH + 10, 20)
 }
 
 ; sigue el mouse sin polling: WM_MOUSEMOVE llega al control bajo el
@@ -1187,13 +1284,13 @@ OnMouseMove(wParam, lParam, msg, hwnd) {
 ; ==================== Aceptar e insertar ====================
 
 AcceptIndex(idx, *) {
-    if idx > entries.Length
+    if idx > rows.Length || viewOff + idx > entries.Length
         return
-    if entries[idx].kind = "group" {
+    if EntryAt(idx).kind = "group" {
         SetSel(idx)
         GoRight()
     } else
-        ExpandTrig(entries[idx].trig)
+        ExpandTrig(EntryAt(idx).trig)
 }
 
 AcceptSub(j, *) {
@@ -1234,7 +1331,7 @@ AcceptKey() {
         GoRight()
         return
     }
-    ExpandTrig(entries[selIdx].trig)
+    ExpandTrig(EntryAt(selIdx).trig)
 }
 
 ; Borra lo escrito (//xxx) y lo reemplaza por el texto del atajo
@@ -1371,6 +1468,12 @@ InsertText(txt) {
     if hadInput
         Sleep 200   ; dar tiempo a que el foco vuelva a la app
     txt := StrReplace(txt, Chr(2), "{")
+    ; teclear: escribe tecla por tecla (para apps que bloquean Ctrl+V)
+    if SubStr(txt, 1, 8) = "teclear:" {
+        t := StrReplace(SubStr(txt, 9), "{cursor}", "")
+        SendText(t)
+        return t
+    }
     back := 0
     cp := InStr(txt, "{cursor}")
     if cp {
@@ -1415,8 +1518,9 @@ ShowAllFromTray(*) {
 }
 
 HideSuggestions() {
-    global suggesting, menuNav, sugGui, rows, rowByHwnd, entries, menuFooter
-    menuNav := false, menuFooter := 0
+    global suggesting, menuNav, sugGui, rows, rowByHwnd, entries, menuFooter, viewOff
+    menuNav := false, menuFooter := 0, viewOff := 0
+    ToolTip(, , , 20)
     CloseSub()
     suggesting := false
     rows := [], rowByHwnd := Map(), entries := []

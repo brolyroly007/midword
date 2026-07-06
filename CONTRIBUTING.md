@@ -34,6 +34,8 @@ Si no imprime nada, la sintaxis es válida.
 - No uses `buffer` como nombre de variable (colisiona con la clase `Buffer`).
 - `{base: x}` en un literal de objeto cambia el prototipo y falla en tiempo de ejecución aunque pase la validación — usa otro nombre de propiedad.
 - Los errores de runtime no aparecen en `/validate`: prueba siempre ejecutando el script.
+- El `InputHook` no captura escritura por composición (IME chino/japonés/coreano): es una limitación conocida, no intentes "arreglarla" con hooks extra.
+- Corre `AutoHotkey64.exe midword.ahk --selftest` antes de enviar un PR (también lo corre el CI).
 
 ## Estilo de código
 
