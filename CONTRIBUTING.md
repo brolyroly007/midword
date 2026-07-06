@@ -36,6 +36,7 @@ Si no imprime nada, la sintaxis es válida.
 - Los errores de runtime no aparecen en `/validate`: prueba siempre ejecutando el script.
 - El `InputHook` no captura escritura por composición (IME chino/japonés/coreano): es una limitación conocida, no intentes "arreglarla" con hooks extra.
 - Corre `AutoHotkey64.exe midword.ahk --selftest` antes de enviar un PR (también lo corre el CI).
+- Para cambios que toquen la expansión/menú, corre además `AutoHotkey64.exe tests\qa_smoke.ahk` (prueba end-to-end local: escribe un atajo de verdad y verifica la inserción; no muevas el teclado mientras corre).
 
 ## Estilo de código
 

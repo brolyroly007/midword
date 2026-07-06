@@ -35,7 +35,8 @@ El menú busca con `Norm()` (sin tildes/mayúsculas) pero `RefreshMgrList` compa
 > Fix: el detalle completo siempre se registra en `midword.log`; el TrayTip se corta a 200 chars con "… (detalle completo en midword.log)".
 `LoadShortcuts` concatena hasta 5 categorías de advertencias en un solo TrayTip (límite práctico ~256 chars). Con muchos problemas, se corta sin indicación. Fix: acortar el mensaje (máx. ~3 líneas + "…") y volcar el detalle completo a `midword.log`.
 
-## 🔵 F8 — Prueba de humo end-to-end automatizada
+## ✅ HECHO — 🔵 F8 — Prueba de humo end-to-end automatizada
+> `tests/qa_smoke.ahk`: lanza midword con un `atajos.txt` temporal, escribe `//qatest` + Tab (con `SendLevel 2` para que el InputHook `I1` lo vea) sobre un Edit propio del test (se descartó Notepad: en Win11 el proceso es un launcher y leer su texto es poco confiable) y verifica la expansión leyendo el Edit directo. Limpia proceso y temporales al salir. **Pasa: "SMOKE OK".** No se enganchó al CI porque los runners no tienen sesión interactiva confiable para input sintético.
 `--selftest` cubre el parser pero nada de UI/expansión. Crear `qa_smoke.ahk` (no se compila, vive en `tests/`): lanza `midword.ahk` con un `atajos.txt` temporal, abre Notepad, tipea `//qatest` + Tab con `SendText`/`SendEvent`, lee el contenido del Edit de Notepad y verifica la expansión; limpia todo al salir (cierra Notepad sin guardar y termina el proceso midword de prueba). Salida por stdout + exit code, para poder engancharlo luego al CI si resulta estable.
 
 ---
@@ -50,4 +51,4 @@ El menú busca con `Norm()` (sin tildes/mayúsculas) pero `RefreshMgrList` compa
 | F5 | ✅ |
 | F6 | ✅ |
 | F7 | ✅ |
-| F8 | pendiente |
+| F8 | ✅ |
