@@ -39,7 +39,7 @@ Escribe `//atajo` en cualquier aplicación —WhatsApp Web, Word, Telegram, tu n
 1. Descarga `Midword.exe` desde [Releases](../../releases).
 2. Ponlo en una carpeta (ej. `C:\atajos`) y ábrelo. Aparece su ícono junto al reloj.
 3. Escribe `//con` en cualquier app para probar.
-4. Para que arranque con Windows: ejecuta `instalar_inicio.bat` una vez (edita antes la ruta si no usas `D:\atajos`).
+4. Para que arranque con Windows: activa **"Iniciar con Windows"** en el menú de la bandeja (clic derecho en el ícono), o ejecuta `instalar_inicio.bat` una vez.
 
 **Opción B — Desde el código fuente:**
 

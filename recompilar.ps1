@@ -1,6 +1,14 @@
 # Valida midword.ahk, lo recompila a Midword.exe y lo reinicia
-$ahk = 'C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe'
-$src = 'D:\atajos\midword.ahk'
+# (rutas relativas a la carpeta del script; no hace falta editarlas)
+$ahk     = 'C:\Program Files\AutoHotkey\v2\AutoHotkey64.exe'
+$ahk2exe = 'C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe'
+$src  = Join-Path $PSScriptRoot 'midword.ahk'
+$out  = Join-Path $PSScriptRoot 'Midword.exe'
+$icon = Join-Path $PSScriptRoot 'midword.ico'
+
+foreach ($tool in $ahk, $ahk2exe) {
+    if (-not (Test-Path $tool)) { Write-Host "No se encontro: $tool"; exit 1 }
+}
 
 & $ahk /ErrorStdOut /validate $src 2>&1 | Out-String
 if ($LASTEXITCODE -ne 0) {
@@ -9,19 +17,25 @@ if ($LASTEXITCODE -ne 0) {
 }
 Write-Host 'VALIDACION OK'
 
-Stop-Process -Name Midword -Force -ErrorAction SilentlyContinue
-Stop-Process -Name Atajos -Force -ErrorAction SilentlyContinue
-Start-Sleep 1
+# Compila a un temporal: si la compilacion falla, el exe actual y el
+# proceso en ejecucion quedan intactos.
+$tmp = Join-Path $PSScriptRoot 'Midword.new.exe'
+Remove-Item $tmp -ErrorAction SilentlyContinue
+& $ahk2exe /in $src /out $tmp /base $ahk /icon $icon /silent verbose | Out-String
 
-& 'C:\Program Files\AutoHotkey\Compiler\Ahk2Exe.exe' /in $src /out 'D:\atajos\Midword.exe' `
-    /base $ahk /icon 'D:\atajos\midword.ico' /silent verbose | Out-String
-Start-Sleep 6
-
-if (-not (Test-Path 'D:\atajos\Midword.exe')) {
+# Ahk2Exe termina de escribir el exe de forma asincrona: esperar con timeout
+$deadline = (Get-Date).AddSeconds(30)
+while (-not (Test-Path $tmp) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
+if (-not (Test-Path $tmp)) {
     Write-Host 'FALLO COMPILACION'
     exit 1
 }
-# vía explorer para que el proceso no muera al cerrar esta consola
-explorer.exe 'D:\atajos\Midword.exe'
+
+Stop-Process -Name Midword -Force -ErrorAction SilentlyContinue
+Start-Sleep 1
+Move-Item $tmp $out -Force
+
+# via explorer para que el proceso no muera al cerrar esta consola
+explorer.exe $out
 Start-Sleep 2
 Get-Process Midword -ErrorAction SilentlyContinue | Select-Object Name, Id | Format-Table

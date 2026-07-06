@@ -30,6 +30,7 @@ PREFIX := "//"
 ; --- Opciones (midword.ini es opcional; si no existe se usan los defaults) ---
 ;   [opciones]
 ;   min_caracteres=1   → no mostrar el menú hasta escribir N letras después de //
+;   hotkey_pausa=^!m   → atajo para pausar/reanudar (sintaxis de hotkeys de AHK)
 INI := A_ScriptDir "\midword.ini"
 MIN_CHARS := 0
 try MIN_CHARS := Integer(IniRead(INI, "opciones", "min_caracteres", "0"))
@@ -99,6 +100,8 @@ sub2ForIdx := 0
 LoadShortcuts()
 
 ; --- Menú de la bandeja del sistema ---
+paused := false
+STARTUP_LNK := A_Startup "\Midword.lnk"
 if FileExist(A_ScriptDir "\midword.ico")
     TraySetIcon(A_ScriptDir "\midword.ico")
 A_TrayMenu.Delete()
@@ -107,9 +110,45 @@ A_TrayMenu.Add("Ver todos los atajos", ShowAllFromTray)
 A_TrayMenu.Add("Editar atajos (archivo)", EditConfig)
 A_TrayMenu.Add("Recargar atajos", ReloadConfig)
 A_TrayMenu.Add()
+A_TrayMenu.Add("Pausar (no sugerir)", TogglePause)
+A_TrayMenu.Add("Iniciar con Windows", ToggleStartup)
+if FileExist(STARTUP_LNK)
+    A_TrayMenu.Check("Iniciar con Windows")
+A_TrayMenu.Add()
 A_TrayMenu.Add("Salir", (*) => ExitApp())
 A_TrayMenu.Default := "Gestionar atajos…"
 TrayTip("Escribe " PREFIX "atajo en cualquier aplicación", "Midword activo")
+
+; pausa/reanuda la captura de teclado (también vía hotkey_pausa del ini)
+TogglePause(*) {
+    global paused
+    paused := !paused
+    if paused {
+        ih.Stop()
+        ResetState()
+        A_TrayMenu.Check("Pausar (no sugerir)")
+        A_IconTip := "Midword (en pausa)"
+        TrayTip("En pausa: no se mostrarán sugerencias", "Midword")
+    } else {
+        ih.Start()
+        A_TrayMenu.Uncheck("Pausar (no sugerir)")
+        A_IconTip := "Midword"
+        TrayTip("Activo de nuevo", "Midword")
+    }
+}
+
+; crea/quita el acceso directo de la carpeta Inicio del usuario
+ToggleStartup(*) {
+    if FileExist(STARTUP_LNK) {
+        FileDelete(STARTUP_LNK)
+        A_TrayMenu.Uncheck("Iniciar con Windows")
+        TrayTip("Ya no se iniciará con Windows", "Midword")
+    } else {
+        FileCreateShortcut(A_ScriptFullPath, STARTUP_LNK, A_ScriptDir)
+        A_TrayMenu.Check("Iniciar con Windows")
+        TrayTip("Se iniciará automáticamente con Windows", "Midword")
+    }
+}
 
 ; --- Hook de teclado: solo observa, no bloquea nada ---
 ih := InputHook("V I1")
@@ -117,6 +156,13 @@ ih.KeyOpt("{All}", "N")
 ih.OnChar := HandleChar
 ih.OnKeyDown := HandleKeyDown
 ih.Start()
+
+; hotkey opcional para pausar/reanudar, p. ej.  [opciones] hotkey_pausa=^!m
+try {
+    hkPausa := IniRead(INI, "opciones", "hotkey_pausa", "")
+    if hkPausa != ""
+        Hotkey(hkPausa, TogglePause)
+}
 
 ; --- Recarga automática cuando se edita atajos.txt ---
 SetTimer(CheckConfigChanged, 3000)

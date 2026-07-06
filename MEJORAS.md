@@ -79,7 +79,8 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 
 ## 3. UX del menú de sugerencias
 
-- 🟠 **3.1 Pausar/activar**: no hay forma de suspender Midword sin salir. Agregar toggle en la bandeja + hotkey configurable (ej. `Ctrl+Alt+M`) + icono gris cuando está pausado.
+- ✅ HECHO — 🟠 **3.1 Pausar/activar**
+  > Toggle "Pausar (no sugerir)" en la bandeja (detiene el InputHook y limpia el estado) + hotkey opcional `hotkey_pausa` en `midword.ini` + tooltip del icono cambia a "(en pausa)". Pendiente menor: icono gris dedicado.
 - 🟠 **3.2 Deshacer expansión**: una expansión instantánea accidental no se puede revertir. Opción: presionar Backspace inmediatamente después de expandir restaura lo escrito (`//atajo`), como hacen Beeftext/espanso.
 - 🟡 **3.3 Coincidencia sin tildes**: buscar `//numero` no encuentra un atajo cuyo texto dice "número". Normalizar con el mismo mapa de `AutoTok` al comparar.
 - 🟡 **3.4 Búsqueda difusa**: coincidencia por subsecuencia (`//grc` → `gracias`) además de prefijo/contiene.
@@ -125,13 +126,13 @@ Con el menú abierto, Tab/Enter/Esc son hotkeys globales que NO llegan a la apli
 
 ## 6. Scripts, instalación y distribución
 
-- 🟠 **6.1 Rutas absolutas `D:\atajos` hardcodeadas** en `recompilar.ps1` (3 veces) e `instalar_inicio.bat`. El README hasta pide "edita antes la ruta". Usar `$PSScriptRoot` y `%~dp0`:
-  ```bat
-  $s.TargetPath='%~dp0Midword.exe'; $s.WorkingDirectory='%~dp0'
-  ```
-- 🟠 **6.2 "Iniciar con Windows" desde la app**: en vez del `.bat`, un checkbox en el menú de la bandeja que cree/borre el acceso directo de Startup (o la clave `HKCU\...\Run`). Elimina el paso manual más frágil de la instalación. Agregar también `desinstalar_inicio.bat` mientras tanto.
+- ✅ HECHO — 🟠 **6.1 Rutas absolutas `D:\atajos` hardcodeadas**
+  > `recompilar.ps1` usa `$PSScriptRoot` e `instalar_inicio.bat` usa `%~dp0`; README/LEEME actualizados (ya no piden editar rutas).
+- ✅ HECHO — 🟠 **6.2 "Iniciar con Windows" desde la app**
+  > Nueva opción con check en el menú de la bandeja (crea/borra `Startup\Midword.lnk` vía `FileCreateShortcut`); también se agregó `desinstalar_inicio.bat`.
 - 🟠 **6.3 CI con GitHub Actions**: workflow que en cada push valide sintaxis (`AutoHotkey64.exe /validate`) y en cada tag compile con Ahk2Exe y suba el exe al Release automáticamente. Hoy el exe se compila a mano en una sola máquina. (Ojo: el token OAuth de gh puede no tener scope `workflow`; subir el yml aparte si hace falta.)
-- 🟡 **6.4 `recompilar.ps1` frágil**: `Start-Sleep 6` arbitrario en lugar de esperar el archivo con reintentos; no valida que Ahk2Exe exista; mata el proceso ANTES de saber si la compilación funcionará (si falla, el usuario queda sin Midword corriendo — compilar a un temp y reemplazar al final); aún mata el proceso legado `Atajos` (limpiar).
+- ✅ HECHO — 🟡 **6.4 `recompilar.ps1` frágil**
+  > Ahora: valida que AutoHotkey y Ahk2Exe existan, compila a `Midword.new.exe` temporal, espera el archivo con timeout de 30 s (sin sleep ciego), recién entonces mata el proceso y reemplaza el exe; se eliminó el kill del proceso legado `Atajos`.
 - 🟡 **6.5 Firma de código / SmartScreen**: el exe sin firma dispara SmartScreen y falsos positivos AV (el README ya lo explica). Opciones: certificado de firma (costoso), enviar el exe a Microsoft para whitelisting, publicar hash SHA-256 + enlace VirusTotal en cada release.
 - 🟡 **6.6 Winget / Scoop / Chocolatey**: manifiesto winget (`brolyroly007.Midword`) y bucket de Scoop. Instala con un comando y da legitimidad frente a antivirus.
 - 🔵 **6.7 Buscador de actualizaciones**: opción de bandeja "Buscar actualización" que consulte `api.github.com/repos/brolyroly007/midword/releases/latest` y avise si hay versión nueva.
@@ -189,8 +190,8 @@ Hoy no hay ningún ajuste de usuario. Candidatos, todos leídos de un ini o de l
 1. ✅ Guardado atómico + respaldos rotativos (1.2) — riesgo real de perder datos del usuario.
 2. ✅ No abrir el menú al escribir URLs (1.4) + `min_caracteres` (8).
 3. ✅ Arreglar `!` en grupos de 2 niveles (1.1).
-4. 🟠 Rutas relativas en `.bat`/`.ps1` + "Iniciar con Windows" desde la bandeja (6.1, 6.2).
-5. 🟠 Pausar/activar desde la bandeja (3.1).
+4. ✅ Rutas relativas en `.bat`/`.ps1` + "Iniciar con Windows" desde la bandeja (6.1, 6.2).
+5. ✅ Pausar/activar desde la bandeja (3.1).
 6. 🟠 GIF de demo en el README (7.1) — costo mínimo, máximo impacto.
 7. 🟠 CI de validación + release automático (6.3).
 8. 🟠 Lost-update del gestor con ediciones externas (1.3).

@@ -12,7 +12,9 @@ ARCHIVOS
 - atajos.txt ............ aquí guardas tus atajos
 - PROMPT_PARA_IA.txt .... pégalo en cualquier IA para que te genere atajos
 - midword.ahk ........... código fuente (por si quieres modificarlo)
-- instalar_inicio.bat ... ejecútalo UNA vez para que arranque con Windows
+- instalar_inicio.bat ... para que arranque con Windows (o usa la opción
+                          "Iniciar con Windows" del menú de la bandeja)
+- desinstalar_inicio.bat  quita el arranque automático
 
 CÓMO AGREGAR ATAJOS (forma fácil — para cualquiera)
 Haz clic en el ícono de Midword en la bandeja (junto al reloj) y se abre el
@@ -86,4 +88,11 @@ DETALLES TÉCNICOS
 - El texto se inserta pegando desde el portapapeles (instantáneo incluso
   con textos largos). Lo que tenías copiado se restaura automáticamente.
 - El programa vive en la bandeja del sistema (junto al reloj).
-- Clic derecho en su ícono: Editar atajos / Recargar / Salir.
+- Clic derecho en su ícono: Editar atajos / Recargar / Pausar /
+  Iniciar con Windows / Salir.
+- "Pausar (no sugerir)" desactiva las sugerencias sin cerrar el programa
+  (útil para juegos o presentaciones). Vuelve a hacer clic para reanudar.
+- Opciones avanzadas: crea un midword.ini junto al exe con
+      [opciones]
+      min_caracteres=1     ← el menú espera N letras después de //
+      hotkey_pausa=^!m     ← Ctrl+Alt+M pausa/reanuda (sintaxis AHK)
