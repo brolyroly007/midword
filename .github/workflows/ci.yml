@@ -29,18 +29,22 @@ jobs:
           "AHK_EXE=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
           Write-Host "AHK: $($exe.FullName)"
 
+      # AutoHotkey64.exe es una app GUI: pwsh no la espera ni setea
+      # $LASTEXITCODE — hay que usar Start-Process -Wait -PassThru
       - name: Validar sintaxis de midword.ahk
         shell: pwsh
         run: |
-          & $env:AHK_EXE /ErrorStdOut /validate midword.ahk
-          if ($LASTEXITCODE -ne 0) { Write-Host "FALLO VALIDACION (exit=$LASTEXITCODE)"; exit 1 }
+          $p = Start-Process $env:AHK_EXE -ArgumentList '/ErrorStdOut','/validate','midword.ahk' -Wait -PassThru -NoNewWindow -RedirectStandardOutput val.out -RedirectStandardError val.err
+          Get-Content val.out, val.err -ErrorAction SilentlyContinue | Write-Host
+          if ($p.ExitCode -ne 0) { Write-Host "FALLO VALIDACION (exit=$($p.ExitCode))"; exit 1 }
           Write-Host 'VALIDACION OK'
 
       - name: Selftest del parser
         shell: pwsh
         run: |
-          & $env:AHK_EXE /ErrorStdOut midword.ahk --selftest | Write-Host
-          if ($LASTEXITCODE -ne 0) { Write-Host "FALLO SELFTEST (exit=$LASTEXITCODE)"; exit 1 }
+          $p = Start-Process $env:AHK_EXE -ArgumentList '/ErrorStdOut','midword.ahk','--selftest' -Wait -PassThru -NoNewWindow -RedirectStandardOutput st.out -RedirectStandardError st.err
+          Get-Content st.out, st.err -ErrorAction SilentlyContinue | Write-Host
+          if ($p.ExitCode -ne 0) { Write-Host "FALLO SELFTEST (exit=$($p.ExitCode))"; exit 1 }
 
   release:
     # al pushear un tag v* compila el exe y lo adjunta al Release con su hash
@@ -74,10 +78,10 @@ jobs:
       - name: Compilar Midword.exe
         shell: pwsh
         run: |
-          & $env:A2E_EXE /in midword.ahk /out Midword.exe /base $env:AHK_EXE /icon midword.ico /silent verbose
+          $p = Start-Process $env:A2E_EXE -ArgumentList "/in","midword.ahk","/out","Midword.exe","/base","$env:AHK_EXE","/icon","midword.ico","/silent","verbose" -Wait -PassThru
           $deadline = (Get-Date).AddSeconds(60)
           while (-not (Test-Path Midword.exe) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
-          if (-not (Test-Path Midword.exe)) { Write-Host 'FALLO COMPILACION'; exit 1 }
+          if (-not (Test-Path Midword.exe)) { Write-Host "FALLO COMPILACION (exit=$($p.ExitCode))"; exit 1 }
 
       - name: Calcular hash SHA-256
         shell: pwsh
