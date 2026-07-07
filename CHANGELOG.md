@@ -2,7 +2,7 @@
 
 Novedades de Midword por versión. Formato inspirado en [Keep a Changelog](https://keepachangelog.com/es/).
 
-## [Sin publicar]
+## [1.3.0] — 2026-07-07
 
 ### Corregido
 - El `!` (expansión instantánea) se perdía en grupos de 2 niveles.
