@@ -17,20 +17,29 @@ jobs:
         run: |
           $rel = Invoke-RestMethod 'https://api.github.com/repos/AutoHotkey/AutoHotkey/releases/latest'
           $asset = $rel.assets | Where-Object name -match '^AutoHotkey_.*\.zip$' | Select-Object -First 1
+          Write-Host "Asset: $($asset.name)"
           Invoke-WebRequest $asset.browser_download_url -OutFile ahk.zip
           Expand-Archive ahk.zip -DestinationPath ahk
+          $exe = Get-ChildItem ahk -Recurse -Filter AutoHotkey64.exe | Select-Object -First 1
+          if (-not $exe) {
+            Write-Host 'No se encontro AutoHotkey64.exe dentro del zip:'
+            Get-ChildItem ahk -Recurse | ForEach-Object { Write-Host $_.FullName }
+            exit 1
+          }
+          "AHK_EXE=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
+          Write-Host "AHK: $($exe.FullName)"
 
       - name: Validar sintaxis de midword.ahk
         shell: pwsh
         run: |
-          & .\ahk\AutoHotkey64.exe /ErrorStdOut /validate midword.ahk
+          & $env:AHK_EXE /ErrorStdOut /validate midword.ahk
           if ($LASTEXITCODE -ne 0) { Write-Host "FALLO VALIDACION (exit=$LASTEXITCODE)"; exit 1 }
           Write-Host 'VALIDACION OK'
 
       - name: Selftest del parser
         shell: pwsh
         run: |
-          & .\ahk\AutoHotkey64.exe /ErrorStdOut midword.ahk --selftest | Write-Host
+          & $env:AHK_EXE /ErrorStdOut midword.ahk --selftest | Write-Host
           if ($LASTEXITCODE -ne 0) { Write-Host "FALLO SELFTEST (exit=$LASTEXITCODE)"; exit 1 }
 
   release:
@@ -50,16 +59,22 @@ jobs:
           $asset = $rel.assets | Where-Object name -match '^AutoHotkey_.*\.zip$' | Select-Object -First 1
           Invoke-WebRequest $asset.browser_download_url -OutFile ahk.zip
           Expand-Archive ahk.zip -DestinationPath ahk
+          $exe = Get-ChildItem ahk -Recurse -Filter AutoHotkey64.exe | Select-Object -First 1
+          if (-not $exe) { Write-Host 'Sin AutoHotkey64.exe'; exit 1 }
+          "AHK_EXE=$($exe.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
           $rel2 = Invoke-RestMethod 'https://api.github.com/repos/AutoHotkey/Ahk2Exe/releases/latest'
           $asset2 = $rel2.assets | Where-Object name -match '\.zip$' | Select-Object -First 1
           Invoke-WebRequest $asset2.browser_download_url -OutFile ahk2exe.zip
           Expand-Archive ahk2exe.zip -DestinationPath ahk2exe
+          $a2e = Get-ChildItem ahk2exe -Recurse -Filter Ahk2Exe.exe | Select-Object -First 1
+          if (-not $a2e) { Write-Host 'Sin Ahk2Exe.exe'; exit 1 }
+          "A2E_EXE=$($a2e.FullName)" | Out-File $env:GITHUB_ENV -Append -Encoding utf8
 
       - name: Compilar Midword.exe
         shell: pwsh
         run: |
-          & .\ahk2exe\Ahk2Exe.exe /in midword.ahk /out Midword.exe /base .\ahk\AutoHotkey64.exe /icon midword.ico /silent verbose
+          & $env:A2E_EXE /in midword.ahk /out Midword.exe /base $env:AHK_EXE /icon midword.ico /silent verbose
           $deadline = (Get-Date).AddSeconds(60)
           while (-not (Test-Path Midword.exe) -and (Get-Date) -lt $deadline) { Start-Sleep -Milliseconds 500 }
           if (-not (Test-Path Midword.exe)) { Write-Host 'FALLO COMPILACION'; exit 1 }
